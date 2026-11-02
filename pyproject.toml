@@ -28,3 +28,25 @@ path = "src/agentgauge/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentgauge"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.pyright]
+include = ["src", "tests"]
+strict = ["src"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=agentgauge --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["agentgauge"]
+branch = true
