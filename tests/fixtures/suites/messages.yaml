@@ -1,0 +1,10 @@
+name: chat
+cases:
+  - id: plain
+    input: hello
+  - id: chat
+    input:
+      - role: system
+        content: be brief
+      - role: user
+        content: hello

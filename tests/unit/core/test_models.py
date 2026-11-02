@@ -3,7 +3,19 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import BaseModel, ValidationError
 
-from agentgauge.core import CaseResult, ModelOutput, RunResult, Score, Suite, TestCase
+from agentgauge.core import (
+    CaseResult,
+    CompletionRequest,
+    GenerationParams,
+    Message,
+    ModelOutput,
+    RunResult,
+    Score,
+    Suite,
+    TestCase,
+    ToolCall,
+    ToolSpec,
+)
 
 
 def _output() -> ModelOutput:
@@ -33,7 +45,33 @@ def _run() -> RunResult:
     )
 
 
+def _request() -> CompletionRequest:
+    return CompletionRequest(
+        messages=(
+            Message(role="system", content="be brief"),
+            Message(role="user", content="weather?"),
+            Message(role="tool", content="sunny", tool_call_id="c1"),
+        ),
+        tools=(
+            ToolSpec(
+                name="search",
+                description="Search the web",
+                parameters={"type": "object", "properties": {"q": {"type": "string"}}},
+            ),
+        ),
+        params=GenerationParams(temperature=0.2, max_tokens=64, seed=1, stop=("END",)),
+    )
+
+
 ALL: list[BaseModel] = [
+    _request(),
+    Message(role="user", content="hi"),
+    ToolSpec(name="t", description="d"),
+    ToolCall(id="c1", name="search", arguments='{"q": "x"}'),
+    GenerationParams(temperature=0.5),
+    ModelOutput(
+        text="", latency_ms=1.0, tool_calls=(ToolCall(id="c1", name="search", arguments="{}"),)
+    ),
     _case(),
     Suite(name="basic", cases=(_case(),), scorers=("exact_match",), description="d"),
     _output(),
@@ -70,3 +108,51 @@ def test_defaults_are_independent() -> None:
     a = TestCase(id="a", input="x")
     b = TestCase(id="b", input="y")
     assert a.metadata is not b.metadata
+
+
+def test_string_input_becomes_single_user_message() -> None:
+    case = TestCase(id="c", input="hello")
+    assert case.input == (Message(role="user", content="hello"),)
+
+
+def test_message_list_input_is_kept() -> None:
+    messages = [Message(role="system", content="s"), Message(role="user", content="u")]
+    case = TestCase(id="c", input=messages)
+    assert case.input == tuple(messages)
+
+
+def test_message_dicts_are_validated_from_data() -> None:
+    case = TestCase.model_validate(
+        {
+            "id": "c",
+            "input": [
+                {"role": "user", "content": "u"},
+                {"role": "tool", "content": "t", "tool_call_id": "1"},
+            ],
+        }
+    )
+    assert case.input[1].tool_call_id == "1"
+
+
+def test_invalid_role_rejected() -> None:
+    with pytest.raises(ValidationError):
+        Message.model_validate({"role": "robot", "content": "x"})
+
+
+def test_generation_params_validation() -> None:
+    with pytest.raises(ValidationError):
+        GenerationParams(temperature=-0.1)
+    with pytest.raises(ValidationError):
+        GenerationParams(max_tokens=0)
+
+
+def test_merged_over_overrides_field_by_field() -> None:
+    defaults = GenerationParams(temperature=0.2, max_tokens=100, seed=7)
+    merged = GenerationParams(temperature=0.9, stop=("END",)).merged_over(defaults)
+    assert merged == GenerationParams(temperature=0.9, max_tokens=100, seed=7, stop=("END",))
+    assert defaults.temperature == 0.2
+
+
+def test_merged_over_without_defaults_returns_self() -> None:
+    params = GenerationParams(seed=3)
+    assert params.merged_over(None) is params
