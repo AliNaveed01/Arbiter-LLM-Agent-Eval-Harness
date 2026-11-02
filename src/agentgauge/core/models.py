@@ -6,27 +6,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class _Model(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class Message(_Model):
-    """One chat message."""
-
-    role: Literal["system", "user", "assistant", "tool"]
-    content: str
-    tool_call_id: str | None = None
-
-
-class ToolSpec(_Model):
-    """A tool the model may call, described with a JSON Schema for its arguments."""
-
-    name: str
-    description: str
-    parameters: dict[str, Any] = Field(default_factory=lambda: {})
 
 
 class ToolCall(_Model):
@@ -35,6 +19,35 @@ class ToolCall(_Model):
     id: str
     name: str
     arguments: str
+
+
+class Message(_Model):
+    """One chat message.
+
+    An assistant message may carry ``tool_calls``; a tool message must carry the
+    ``tool_call_id`` of the call it answers.
+    """
+
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str
+    tool_call_id: str | None = None
+    tool_calls: tuple[ToolCall, ...] = ()
+
+    @model_validator(mode="after")
+    def _check_tool_fields(self) -> Message:
+        if self.tool_calls and self.role != "assistant":
+            raise ValueError("only assistant messages may carry tool_calls")
+        if self.role == "tool" and not self.tool_call_id:
+            raise ValueError("tool messages must have a tool_call_id")
+        return self
+
+
+class ToolSpec(_Model):
+    """A tool the model may call, described with a JSON Schema for its arguments."""
+
+    name: str
+    description: str
+    parameters: dict[str, Any] = Field(default_factory=lambda: {})
 
 
 class GenerationParams(_Model):
