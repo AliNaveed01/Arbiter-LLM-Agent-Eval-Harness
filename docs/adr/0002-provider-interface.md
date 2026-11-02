@@ -21,8 +21,9 @@ class Provider(Protocol):
     async def complete(self, request: CompletionRequest) -> ModelOutput: ...
 ```
 
-- `CompletionRequest` is a frozen Pydantic model in `agentgauge.core.models` holding `messages` (role `system|user|assistant|tool`, content, optional `tool_call_id`), `tools` (name, description, JSON Schema parameters) and optional `params`.
+- `CompletionRequest` is a frozen Pydantic model in `agentgauge.core.models` holding `messages` (role `system|user|assistant|tool`, content, `tool_call_id`, `tool_calls`), `tools` (name, description, JSON Schema parameters) and optional `params`.
 - `GenerationParams` (temperature, max_tokens, seed, stop) uses `None` for "not set". A provider instance holds default params; params on a request override them field by field via `GenerationParams.merged_over`.
+- `Message` has two tool-related fields, enforced by a validator: only `assistant` messages may carry `tool_calls` (the calls the model requested), and a `tool` message must have a `tool_call_id` naming the call it answers. This lets a full agent exchange be replayed as history.
 - `ModelOutput` gains `tool_calls`, each with an id, a name and arguments as a JSON string. Arguments stay a string, exactly as the model produced them, so malformed JSON can be scored rather than hidden by parsing at the boundary.
 - `TestCase.input` accepts a string, which becomes one user message, or a list of messages.
 - `FakeProvider` matches canned responses on the last user message and can return canned tool calls.
