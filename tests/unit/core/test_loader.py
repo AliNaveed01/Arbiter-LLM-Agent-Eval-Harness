@@ -72,3 +72,9 @@ def test_empty_yaml(tmp_path: Path) -> None:
     path.write_text("")
     with pytest.raises(SuiteLoadError, match="top level"):
         load_suite(path)
+
+
+def test_yaml_input_may_be_string_or_message_list() -> None:
+    suite = load_suite(FIXTURES / "messages.yaml")
+    assert [m.role for m in suite.cases[0].input] == ["user"]
+    assert [m.role for m in suite.cases[1].input] == ["system", "user"]
