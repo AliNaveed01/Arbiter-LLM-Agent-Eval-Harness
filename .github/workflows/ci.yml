@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  ci:
+  test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -38,3 +38,11 @@ jobs:
             echo "Commit messages must not carry tool attribution." >&2
             exit 1
           fi
+
+  ci:
+    if: always()
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all matrix jobs to pass
+        run: test "${{ needs.test.result }}" = "success"
