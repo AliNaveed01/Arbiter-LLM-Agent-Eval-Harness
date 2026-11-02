@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+grep -viE '^(co-authored-by:.*(claude|anthropic)|claude-session:)|generated with .*claude' "$1" > "$1.tmp" || true
+mv "$1.tmp" "$1"

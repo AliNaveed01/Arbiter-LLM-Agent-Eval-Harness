@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.sqlite
+*.db
+
+# Local agent and planning files
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+PLAYBOOK.md
