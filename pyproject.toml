@@ -20,6 +20,7 @@ dev = [
     "ruff",
     "pyright",
     "pre-commit",
+    "types-pyyaml>=6.0.12.20261030",
 ]
 
 [build-system]
