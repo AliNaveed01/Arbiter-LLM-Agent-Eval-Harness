@@ -5,7 +5,9 @@ description = "Regression testing for LLM agents"
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.2",
+]
 
 [project.urls]
 Homepage = "https://github.com/AliNaveed01/agentgauge"
