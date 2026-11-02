@@ -7,6 +7,14 @@ from typing import Protocol, runtime_checkable
 from agentgauge.core.models import CompletionRequest, ModelOutput
 
 
+class ProviderError(Exception):
+    """A provider failed to produce an output (after any retries)."""
+
+    def __init__(self, message: str, *, status_code: int | None = None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
 @runtime_checkable
 class Provider(Protocol):
     """Something that can turn a :class:`CompletionRequest` into a :class:`ModelOutput`.
