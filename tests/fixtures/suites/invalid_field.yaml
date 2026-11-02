@@ -1,0 +1,6 @@
+name: bad-case
+cases:
+  - id: ok
+    input: fine
+  - id: missing-input
+    expected: x
