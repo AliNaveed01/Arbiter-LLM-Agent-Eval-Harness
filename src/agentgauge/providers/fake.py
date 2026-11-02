@@ -72,7 +72,7 @@ class FakeProvider:
         return ModelOutput(
             text=response.text,
             latency_ms=self._latency_ms,
-            prompt_tokens=sum(len(m.content.split()) for m in request.messages),
+            prompt_tokens=sum(_count_tokens(m) for m in request.messages),
             completion_tokens=len(response.text.split()),
             cost_usd=0.0,
             tool_calls=response.tool_calls,
@@ -84,3 +84,9 @@ def _last_user_content(messages: tuple[Message, ...]) -> str:
         if message.role == "user":
             return message.content
     raise ValueError("request has no user message")
+
+
+def _count_tokens(message: Message) -> int:
+    """Whitespace word count over content plus any tool-call names and arguments."""
+    calls = sum(len(c.name.split()) + len(c.arguments.split()) for c in message.tool_calls)
+    return len(message.content.split()) + calls
