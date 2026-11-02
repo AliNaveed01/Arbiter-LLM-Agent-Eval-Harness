@@ -1,0 +1,20 @@
+name: tool-conversation
+cases:
+  - id: weather-follow-up
+    input:
+      - role: system
+        content: You are a weather assistant.
+      - role: user
+        content: What's the weather in Paris?
+      - role: assistant
+        content: ""
+        tool_calls:
+          - id: call_1
+            name: get_weather
+            arguments: '{"city": "Paris"}'
+      - role: tool
+        tool_call_id: call_1
+        content: '{"temp_c": 18, "sky": "cloudy"}'
+      - role: user
+        content: And should I bring an umbrella?
+    expected: umbrella

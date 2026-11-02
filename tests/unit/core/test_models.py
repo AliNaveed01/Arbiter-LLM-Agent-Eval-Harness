@@ -50,6 +50,11 @@ def _request() -> CompletionRequest:
         messages=(
             Message(role="system", content="be brief"),
             Message(role="user", content="weather?"),
+            Message(
+                role="assistant",
+                content="",
+                tool_calls=(ToolCall(id="c1", name="search", arguments="{}"),),
+            ),
             Message(role="tool", content="sunny", tool_call_id="c1"),
         ),
         tools=(
@@ -156,3 +161,25 @@ def test_merged_over_overrides_field_by_field() -> None:
 def test_merged_over_without_defaults_returns_self() -> None:
     params = GenerationParams(seed=3)
     assert params.merged_over(None) is params
+
+
+def test_assistant_message_may_carry_tool_calls() -> None:
+    call = ToolCall(id="c1", name="search", arguments="{}")
+    message = Message(role="assistant", content="", tool_calls=(call,))
+    assert message.tool_calls == (call,)
+    assert Message.model_validate_json(message.model_dump_json()) == message
+
+
+@pytest.mark.parametrize("role", ["system", "user", "tool"])
+def test_only_assistant_may_carry_tool_calls(role: str) -> None:
+    call = {"id": "c1", "name": "search", "arguments": "{}"}
+    data = {"role": role, "content": "x", "tool_call_id": "c1", "tool_calls": [call]}
+    with pytest.raises(ValidationError, match="only assistant"):
+        Message.model_validate(data)
+
+
+def test_tool_message_requires_tool_call_id() -> None:
+    with pytest.raises(ValidationError, match="tool_call_id"):
+        Message(role="tool", content="sunny")
+    with pytest.raises(ValidationError, match="tool_call_id"):
+        Message(role="tool", content="sunny", tool_call_id="")

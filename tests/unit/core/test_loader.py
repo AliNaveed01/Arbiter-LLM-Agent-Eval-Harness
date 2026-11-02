@@ -78,3 +78,18 @@ def test_yaml_input_may_be_string_or_message_list() -> None:
     suite = load_suite(FIXTURES / "messages.yaml")
     assert [m.role for m in suite.cases[0].input] == ["user"]
     assert [m.role for m in suite.cases[1].input] == ["system", "user"]
+
+
+def test_yaml_multi_turn_tool_conversation() -> None:
+    case = load_suite(FIXTURES / "tool_conversation.yaml").cases[0]
+    assert [m.role for m in case.input] == ["system", "user", "assistant", "tool", "user"]
+    assert case.input[2].tool_calls[0].name == "get_weather"
+    assert case.input[3].tool_call_id == case.input[2].tool_calls[0].id
+
+
+def test_tool_message_without_id_reports_line() -> None:
+    path = FIXTURES / "invalid_tool_message.yaml"
+    with pytest.raises(SuiteLoadError) as info:
+        load_suite(path)
+    assert info.value.line == 5
+    assert "tool_call_id" in info.value.message
