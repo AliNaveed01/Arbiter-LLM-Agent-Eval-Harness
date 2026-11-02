@@ -1,15 +1,10 @@
 """Load suites from YAML or JSONL files with file/line error reporting."""
 
-# PyYAML ships no type information, and the types-PyYAML stubs are not an approved
-# dependency yet. Relax only the "unknown" checks for this module.
-# pyright: reportUnknownMemberType=false, reportUnknownVariableType=false
-# pyright: reportUnknownArgumentType=false
-
 from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import yaml
 from pydantic import ValidationError
@@ -61,7 +56,11 @@ def _load_jsonl(path: Path, text: str) -> Suite:
 
 def _load_yaml(path: Path, text: str) -> Suite:
     try:
-        root: yaml.Node | None = yaml.compose(text, Loader=yaml.SafeLoader)
+        # types-PyYAML leaves compose()'s return type unannotated.
+        root = cast(
+            "yaml.Node | None",
+            yaml.compose(text, Loader=yaml.SafeLoader),  # pyright: ignore[reportUnknownMemberType]
+        )
         data: Any = yaml.safe_load(text)
     except yaml.YAMLError as exc:
         problem = getattr(exc, "problem", None) or "invalid YAML"
