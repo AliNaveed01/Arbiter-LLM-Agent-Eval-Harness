@@ -114,3 +114,17 @@ def test_unit_suite_blocks_network() -> None:
         socket.getaddrinfo("example.com", 80)
     with pytest.raises(RuntimeError, match="network access"):
         socket.create_connection(("127.0.0.1", 9))
+
+
+def test_prompt_tokens_count_assistant_tool_calls() -> None:
+    call = ToolCall(id="c1", name="web_search", arguments='{"q": "rain today"}')
+    request = CompletionRequest(
+        messages=(
+            Message(role="user", content="weather now"),
+            Message(role="assistant", content="", tool_calls=(call,)),
+            Message(role="tool", content="sunny", tool_call_id="c1"),
+        )
+    )
+    out = asyncio.run(FakeProvider({"weather now": "sunny"}).complete(request))
+    # "weather now" (2) + call name (1) + arguments (3) + "sunny" (1)
+    assert out.prompt_tokens == 7

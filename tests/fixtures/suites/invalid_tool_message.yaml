@@ -1,0 +1,6 @@
+name: bad-tool-message
+cases:
+  - id: no-id
+    input:
+      - role: tool
+        content: result
