@@ -11,7 +11,7 @@ from pydantic import ValidationError
 from rich.console import Console
 
 from agentgauge import __version__
-from agentgauge.cli.render import render_run
+from agentgauge.cli.render import render_run, render_run_list
 from agentgauge.core import ProviderConfig, RunResult, Suite, SuiteLoadError, load_suite
 from agentgauge.providers import ProviderConfigError, build_provider
 from agentgauge.runner import run_suite
@@ -33,6 +33,12 @@ def _print_version(value: bool) -> None:
     if value:
         typer.echo(f"agentgauge {__version__}")
         raise typer.Exit()
+
+
+runs_app = typer.Typer(help="Inspect stored runs.", no_args_is_help=True)
+app.add_typer(runs_app, name="runs")
+
+DbOption = Annotated[Path, typer.Option("--db", envvar="AGENTGAUGE_DB", help="Run database file.")]
 
 
 @app.callback()
@@ -96,9 +102,7 @@ def run(
     suite_path: Annotated[
         Path, typer.Argument(metavar="SUITE", help="Suite file (.yaml, .yml or .jsonl).")
     ],
-    db: Annotated[
-        Path, typer.Option("--db", envvar="AGENTGAUGE_DB", help="Run database file.")
-    ] = DEFAULT_DB,
+    db: DbOption = DEFAULT_DB,
     provider_type: Annotated[
         str | None,
         typer.Option("--provider", help="Provider type: openai_compat or fake."),
@@ -133,3 +137,17 @@ def run(
     console = Console()
     render_run(console, result)
     console.print(f"Stored as run {result.run_id[:8]} in {db}")
+
+
+@runs_app.command("list")
+def runs_list(
+    db: DbOption = DEFAULT_DB,
+    limit: Annotated[int, typer.Option(min=1, help="Show at most this many runs.")] = 20,
+) -> None:
+    """List stored runs, newest first."""
+    try:
+        with RunStore(db) as store:
+            summaries = store.list_runs(limit=limit)
+    except StorageError as exc:
+        _fail(str(exc))
+    render_run_list(Console(), summaries)
