@@ -11,6 +11,7 @@ from agentgauge.core import (
     ModelOutput,
     RunResult,
     Score,
+    ScorerSpec,
     Suite,
     TestCase,
     ToolCall,
@@ -183,3 +184,28 @@ def test_tool_message_requires_tool_call_id() -> None:
         Message(role="tool", content="sunny")
     with pytest.raises(ValidationError, match="tool_call_id"):
         Message(role="tool", content="sunny", tool_call_id="")
+
+
+def test_suite_scorers_accept_names_and_specs() -> None:
+    suite = Suite.model_validate(
+        {
+            "name": "s",
+            "cases": [],
+            "scorers": ["exact_match", {"name": "regex", "params": {"pattern": "a+"}}],
+        }
+    )
+    assert suite.scorers == (
+        ScorerSpec(name="exact_match"),
+        ScorerSpec(name="regex", params={"pattern": "a+"}),
+    )
+    assert Suite.model_validate_json(suite.model_dump_json()) == suite
+
+
+def test_suite_scorers_constructor_accepts_strings() -> None:
+    suite = Suite(name="s", cases=(), scorers=("contains", ScorerSpec(name="regex")))
+    assert [s.name for s in suite.scorers] == ["contains", "regex"]
+
+
+def test_suite_scorers_rejects_non_sequence() -> None:
+    with pytest.raises(ValidationError):
+        Suite.model_validate({"name": "s", "cases": [], "scorers": "exact_match"})

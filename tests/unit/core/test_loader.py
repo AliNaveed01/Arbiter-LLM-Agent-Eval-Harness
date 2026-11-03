@@ -93,3 +93,11 @@ def test_tool_message_without_id_reports_line() -> None:
         load_suite(path)
     assert info.value.line == 5
     assert "tool_call_id" in info.value.message
+
+
+def test_yaml_scorers_may_have_params() -> None:
+    suite = load_suite(FIXTURES / "scorer_params.yaml")
+    assert suite.scorers == (
+        ScorerSpec(name="exact_match"),
+        ScorerSpec(name="numeric_tolerance", params={"abs_tol": 0.01}),
+    )
