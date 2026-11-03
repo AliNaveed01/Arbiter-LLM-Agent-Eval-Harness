@@ -151,3 +151,21 @@ def runs_list(
     except StorageError as exc:
         _fail(str(exc))
     render_run_list(Console(), summaries)
+
+
+@runs_app.command("show")
+def runs_show(
+    run_id: Annotated[str, typer.Argument(metavar="ID", help="Run id or unique id prefix.")],
+    db: DbOption = DEFAULT_DB,
+) -> None:
+    """Show one stored run in detail, including each case's output."""
+    try:
+        store = RunStore(db)
+    except StorageError as exc:
+        _fail(str(exc))
+    with store:
+        try:
+            run = store.get_run(run_id)
+        except StorageError as exc:  # unknown id or ambiguous prefix
+            _fail(str(exc), code=1)
+    render_run(Console(), run, verbose=True)
