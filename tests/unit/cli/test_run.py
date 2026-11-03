@@ -1,0 +1,191 @@
+from pathlib import Path
+
+import httpx
+import pytest
+import respx
+from typer.testing import CliRunner
+
+from agentgauge.cli import app
+from agentgauge.storage import RunStore
+
+runner = CliRunner(env={"COLUMNS": "200"})
+
+FAKE_SUITE = """\
+name: arithmetic
+provider:
+  type: fake
+  model: scripted
+  responses:
+    "2+2?": "4"
+    "3+3?": "7"
+scorers: [exact_match]
+cases:
+  - {id: add, input: "2+2?", expected: "4"}
+  - {id: wrong, input: "3+3?", expected: "6"}
+"""
+
+
+def write(tmp_path: Path, text: str, name: str = "suite.yaml") -> Path:
+    path = tmp_path / name
+    path.write_text(text)
+    return path
+
+
+def invoke(tmp_path: Path, *args: str) -> tuple[int, str]:
+    result = runner.invoke(app, ["run", *args, "--db", str(tmp_path / "runs.db")])
+    return result.exit_code, result.output
+
+
+def stored_runs(tmp_path: Path) -> int:
+    with RunStore(tmp_path / "runs.db") as store:
+        return len(store.list_runs())
+
+
+def test_runs_a_suite_with_its_own_provider_and_stores_the_run(tmp_path: Path) -> None:
+    code, output = invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)))
+    assert code == 0, output
+    assert "suite arithmetic  model scripted" in output
+    assert "PASS" in output and "FAIL" in output
+    assert "exact_match: expected '6'" in output
+    assert "1/2 passed, 1 failed, 0 errors" in output
+    assert "Stored as run" in output
+    with RunStore(tmp_path / "runs.db") as store:
+        (summary,) = store.list_runs()
+        assert output.count(summary.run_id[:8]) == 2
+        assert (summary.total_cases, summary.passed_cases) == (2, 1)
+
+
+def test_failing_scores_do_not_change_the_exit_code(tmp_path: Path) -> None:
+    code, _ = invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)))
+    assert code == 0
+
+
+def test_provider_errors_are_reported_per_case_with_exit_zero(tmp_path: Path) -> None:
+    suite = FAKE_SUITE.replace('"3+3?": "7"', '"other": "x"')
+    code, output = invoke(tmp_path, str(write(tmp_path, suite)))
+    assert code == 0
+    assert "ERROR" in output and "KeyError" in output
+    assert "1/2 passed, 0 failed, 1 errors" in output
+
+
+def test_model_option_overrides_the_suite(tmp_path: Path) -> None:
+    code, output = invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)), "--model", "renamed")
+    assert code == 0
+    assert "model renamed" in output
+
+
+def test_suite_without_provider_needs_options(tmp_path: Path) -> None:
+    suite = write(tmp_path, '{"id": "a", "input": "q", "expected": "x"}\n', "cases.jsonl")
+    code, output = invoke(tmp_path, str(suite))
+    assert code == 2
+    assert "error: no provider configured" in output
+    assert stored_runs(tmp_path) == 0
+
+
+def test_fake_provider_can_be_chosen_on_the_command_line(tmp_path: Path) -> None:
+    suite = write(tmp_path, '{"id": "a", "input": "q", "expected": "x"}\n', "cases.jsonl")
+    code, output = invoke(tmp_path, str(suite), "--provider", "fake")
+    assert code == 0
+    assert "model fake" in output and "KeyError" in output
+
+
+@respx.mock
+def test_openai_compatible_endpoint_via_options(tmp_path: Path) -> None:
+    body = {"choices": [{"message": {"role": "assistant", "content": "x"}}], "usage": {}}
+    route = respx.post("http://llm.test/v1/chat/completions").mock(
+        return_value=httpx.Response(200, json=body)
+    )
+    suite = write(
+        tmp_path,
+        '{"id": "a", "input": "q", "expected": "x"}\n{"id": "b", "input": "r"}\n',
+        "cases.jsonl",
+    )
+    code, output = invoke(
+        tmp_path,
+        str(suite),
+        "--model",
+        "gpt-x",
+        "--base-url",
+        "http://llm.test/v1",
+        "--concurrency",
+        "2",
+    )
+    assert code == 0, output
+    assert route.call_count == 2
+    assert "model gpt-x" in output
+    assert stored_runs(tmp_path) == 1
+
+
+def test_missing_suite_file_is_a_config_error(tmp_path: Path) -> None:
+    code, output = invoke(tmp_path, str(tmp_path / "nope.yaml"))
+    assert code == 2
+    assert "error:" in output and "nope.yaml" in output and "cannot read file" in output
+
+
+def test_invalid_suite_reports_file_and_line(tmp_path: Path) -> None:
+    suite = write(tmp_path, "name: s\ncases:\n  - id: a\n")
+    code, output = invoke(tmp_path, str(suite))
+    assert code == 2
+    assert f"{suite}:3:" in output.replace("\n", "")
+
+
+def test_unknown_scorer_is_a_config_error_and_nothing_is_stored(tmp_path: Path) -> None:
+    suite = write(tmp_path, FAKE_SUITE.replace("[exact_match]", "[nope]"))
+    code, output = invoke(tmp_path, str(suite))
+    assert code == 2
+    assert "unknown scorer 'nope'" in output
+    assert stored_runs(tmp_path) == 0
+
+
+def test_invalid_provider_type_is_a_config_error(tmp_path: Path) -> None:
+    code, output = invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)), "--provider", "pigeon")
+    assert code == 2
+    assert "invalid provider options" in output
+
+
+def test_openai_compat_without_a_model_is_a_config_error(tmp_path: Path) -> None:
+    suite = write(tmp_path, '{"id": "a", "input": "q"}\n', "cases.jsonl")
+    code, output = invoke(tmp_path, str(suite), "--provider", "openai_compat")
+    assert code == 2
+    assert "needs a model" in output
+
+
+def test_missing_api_key_variable_is_a_config_error(tmp_path: Path) -> None:
+    suite = write(tmp_path, '{"id": "a", "input": "q"}\n', "cases.jsonl")
+    code, output = invoke(tmp_path, str(suite), "--model", "m", "--api-key-env", "AG_NO_SUCH_KEY")
+    assert code == 2
+    assert "AG_NO_SUCH_KEY is not set" in output
+    assert stored_runs(tmp_path) == 0
+
+
+def test_unusable_database_is_a_config_error(tmp_path: Path) -> None:
+    suite = write(tmp_path, FAKE_SUITE)
+    result = runner.invoke(app, ["run", str(suite), "--db", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "cannot open run store" in result.output
+
+
+def test_concurrency_must_be_positive(tmp_path: Path) -> None:
+    code, _ = invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)), "--concurrency", "0")
+    assert code == 2
+
+
+def test_database_path_comes_from_the_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    db = tmp_path / "from-env.db"
+    monkeypatch.setenv("AGENTGAUGE_DB", str(db))
+    result = runner.invoke(app, ["run", str(write(tmp_path, FAKE_SUITE))])
+    assert result.exit_code == 0
+    with RunStore(db) as store:
+        assert len(store.list_runs()) == 1
+
+
+def test_default_database_is_under_the_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENTGAUGE_DB", raising=False)
+    result = runner.invoke(app, ["run", str(write(tmp_path, FAKE_SUITE))])
+    assert result.exit_code == 0
+    assert (tmp_path / ".agentgauge" / "runs.db").exists()
