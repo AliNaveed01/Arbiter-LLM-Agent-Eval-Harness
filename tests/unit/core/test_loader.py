@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from agentgauge.core import SuiteLoadError, load_suite
+from agentgauge.core import ScorerSpec, SuiteLoadError, load_suite
 
 FIXTURES = Path(__file__).parent.parent.parent / "fixtures" / "suites"
 
@@ -10,7 +10,7 @@ FIXTURES = Path(__file__).parent.parent.parent / "fixtures" / "suites"
 def test_load_yaml() -> None:
     suite = load_suite(FIXTURES / "valid.yaml")
     assert suite.name == "basic"
-    assert suite.scorers == ("exact_match",)
+    assert suite.scorers == (ScorerSpec(name="exact_match"),)
     assert [c.id for c in suite.cases] == ["add", "capital"]
     assert suite.cases[1].metadata == {"tag": "geo"}
 

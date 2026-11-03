@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -110,13 +110,43 @@ class TestCase(_Model):
         return value
 
 
+class ScorerSpec(_Model):
+    """A scorer referenced by registry name, with optional constructor params."""
+
+    name: str
+    params: dict[str, Any] = Field(default_factory=lambda: {})
+
+
 class Suite(_Model):
-    """A named collection of test cases and the scorers applied to them."""
+    """A named collection of test cases and the scorers applied to them.
+
+    Each entry in ``scorers`` may be a bare registry name or a mapping with
+    ``name`` and ``params``.
+    """
 
     name: str
     cases: tuple[TestCase, ...]
-    scorers: tuple[str, ...] = ()
+    scorers: tuple[ScorerSpec, ...] = ()
     description: str | None = None
+
+    if TYPE_CHECKING:
+
+        def __init__(
+            self,
+            *,
+            name: str,
+            cases: Sequence[TestCase],
+            scorers: Sequence[str | ScorerSpec] = (),
+            description: str | None = None,
+        ) -> None: ...
+
+    @field_validator("scorers", mode="before")
+    @classmethod
+    def _expand_bare_names(cls, value: Any) -> Any:
+        if isinstance(value, list | tuple):
+            items = cast("Sequence[Any]", value)
+            return tuple({"name": v} if isinstance(v, str) else v for v in items)
+        return value
 
 
 class ModelOutput(_Model):
