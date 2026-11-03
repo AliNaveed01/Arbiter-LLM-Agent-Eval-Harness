@@ -117,6 +117,22 @@ class ScorerSpec(_Model):
     params: dict[str, Any] = Field(default_factory=lambda: {})
 
 
+class ProviderConfig(_Model):
+    """Which model a suite runs against, so ``agentgauge run suite.yaml`` is self-contained.
+
+    ``type`` is ``openai_compat`` (any OpenAI-compatible endpoint) or ``fake``
+    (canned ``responses``, for examples and tests). ``api_key_env`` names the
+    environment variable holding the API key; keys are never stored in suites.
+    """
+
+    type: Literal["openai_compat", "fake"]
+    model: str | None = None
+    base_url: str | None = None
+    api_key_env: str | None = None
+    params: GenerationParams | None = None
+    responses: dict[str, str] = Field(default_factory=lambda: {})
+
+
 class Suite(_Model):
     """A named collection of test cases and the scorers applied to them.
 
@@ -128,6 +144,7 @@ class Suite(_Model):
     cases: tuple[TestCase, ...]
     scorers: tuple[ScorerSpec, ...] = ()
     description: str | None = None
+    provider: ProviderConfig | None = None
 
     if TYPE_CHECKING:
 
@@ -138,6 +155,7 @@ class Suite(_Model):
             cases: Sequence[TestCase],
             scorers: Sequence[str | ScorerSpec] = (),
             description: str | None = None,
+            provider: ProviderConfig | None = None,
         ) -> None: ...
 
     @field_validator("scorers", mode="before")
