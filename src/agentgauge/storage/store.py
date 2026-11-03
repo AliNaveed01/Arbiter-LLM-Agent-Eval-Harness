@@ -54,10 +54,17 @@ class RunStore:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         try:
             self._conn = sqlite3.connect(path)
+        except sqlite3.Error as exc:
+            raise StorageError(f"cannot open run store at {path}: {exc}") from exc
+        try:
             self._conn.execute("PRAGMA foreign_keys = ON")
             migrate(self._conn)
         except sqlite3.Error as exc:
+            self._conn.close()
             raise StorageError(f"cannot open run store at {path}: {exc}") from exc
+        except BaseException:
+            self._conn.close()  # e.g. a database from a newer agentgauge
+            raise
 
     def close(self) -> None:
         self._conn.close()
