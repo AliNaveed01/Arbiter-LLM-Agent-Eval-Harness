@@ -9,6 +9,7 @@ from agentgauge.core import (
     GenerationParams,
     Message,
     ModelOutput,
+    ProviderConfig,
     RunResult,
     Score,
     ScorerSpec,
@@ -232,3 +233,20 @@ def test_case_result_passed() -> None:
     assert not CaseResult(case_id="c", scores=(good, bad)).passed
     assert not CaseResult(case_id="c", scores=(good,), error="boom").passed
     assert CaseResult(case_id="c").passed
+
+
+def test_provider_config_round_trip_and_validation() -> None:
+    config = ProviderConfig(
+        type="openai_compat",
+        model="gpt-x",
+        base_url="http://localhost:8000/v1",
+        api_key_env="MY_KEY",
+        params=GenerationParams(temperature=0),
+    )
+    suite = Suite(name="s", cases=(), provider=config)
+    assert Suite.model_validate_json(suite.model_dump_json()) == suite
+    assert ProviderConfig(type="fake").responses == {}
+    with pytest.raises(ValidationError):
+        ProviderConfig.model_validate({"type": "carrier-pigeon"})
+    with pytest.raises(ValidationError):
+        ProviderConfig.model_validate({"type": "fake", "api_key": "sk-secret"})

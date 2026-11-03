@@ -1,0 +1,10 @@
+name: with-provider
+provider:
+  type: fake
+  model: scripted
+  responses:
+    "2+2?": "4"
+cases:
+  - id: add
+    input: "2+2?"
+    expected: "4"
