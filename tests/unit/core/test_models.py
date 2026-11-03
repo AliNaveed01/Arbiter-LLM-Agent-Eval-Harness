@@ -209,3 +209,26 @@ def test_suite_scorers_constructor_accepts_strings() -> None:
 def test_suite_scorers_rejects_non_sequence() -> None:
     with pytest.raises(ValidationError):
         Suite.model_validate({"name": "s", "cases": [], "scorers": "exact_match"})
+
+
+def test_case_result_records_latency_and_cost() -> None:
+    result = CaseResult(case_id="c", output=_output(), latency_ms=12.5, cost_usd=0.001)
+    assert (result.latency_ms, result.cost_usd) == (12.5, 0.001)
+    assert CaseResult.model_validate_json(result.model_dump_json()) == result
+    assert CaseResult(case_id="c").latency_ms is None
+
+
+def test_case_result_rejects_negative_latency_and_cost() -> None:
+    with pytest.raises(ValidationError):
+        CaseResult(case_id="c", latency_ms=-1)
+    with pytest.raises(ValidationError):
+        CaseResult(case_id="c", cost_usd=-0.1)
+
+
+def test_case_result_passed() -> None:
+    good = Score(scorer="s", value=1.0, passed=True)
+    bad = Score(scorer="s", value=0.0, passed=False)
+    assert CaseResult(case_id="c", scores=(good, good)).passed
+    assert not CaseResult(case_id="c", scores=(good, bad)).passed
+    assert not CaseResult(case_id="c", scores=(good,), error="boom").passed
+    assert CaseResult(case_id="c").passed
