@@ -33,3 +33,23 @@ class ExactMatch:
             return _missing_expected(self.name)
         passed = self._normalise(output.text) == self._normalise(case.expected)
         return _verdict(self.name, passed, None if passed else f"expected {case.expected!r}")
+
+
+@register_scorer("contains")
+class Contains:
+    """Output contains ``case.expected`` as a substring."""
+
+    name = "contains"
+
+    def __init__(self, case_sensitive: bool = True) -> None:
+        self._case_sensitive = case_sensitive
+
+    async def score(self, case: TestCase, output: ModelOutput) -> Score:
+        if case.expected is None:
+            return _missing_expected(self.name)
+        text, needle = output.text, case.expected
+        if not self._case_sensitive:
+            text, needle = text.casefold(), needle.casefold()
+        passed = needle in text
+        reason = None if passed else f"output does not contain {case.expected!r}"
+        return _verdict(self.name, passed, reason)
