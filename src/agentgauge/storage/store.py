@@ -8,7 +8,7 @@ from pathlib import Path
 from types import TracebackType
 from typing import Self
 
-from pydantic import TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from agentgauge.core.models import CaseResult, ModelOutput, RunResult, Score
 from agentgauge.storage.migrations import StorageError, migrate
@@ -21,6 +21,21 @@ def _to_text(moment: datetime) -> str:
     if moment.tzinfo is None:
         raise StorageError("timestamps must be timezone-aware")
     return moment.astimezone(UTC).isoformat(timespec="microseconds")
+
+
+class RunSummary(BaseModel):
+    """One row of a run listing: identity, timing and outcome counts."""
+
+    model_config = ConfigDict(frozen=True)
+
+    run_id: str
+    suite_name: str
+    model: str
+    started_at: datetime
+    finished_at: datetime | None
+    total_cases: int
+    passed_cases: int
+    errored_cases: int
 
 
 class RunNotFoundError(StorageError):
@@ -90,6 +105,30 @@ class RunStore:
                 )
         except sqlite3.IntegrityError as exc:
             raise StorageError(f"run {run.run_id} is already stored") from exc
+
+    def list_runs(self, limit: int | None = None) -> list[RunSummary]:
+        """Summaries of stored runs, newest first, optionally capped at ``limit``."""
+        rows = self._conn.execute(
+            "SELECT r.run_id, r.suite_name, r.model, r.started_at, r.finished_at, "
+            "COUNT(c.position), COALESCE(SUM(c.passed), 0), "
+            "COALESCE(SUM(c.error IS NOT NULL), 0) "
+            "FROM runs r LEFT JOIN case_results c ON c.run_id = r.run_id "
+            "GROUP BY r.run_id ORDER BY r.started_at DESC, r.run_id LIMIT ?",
+            (-1 if limit is None else limit,),
+        ).fetchall()
+        return [
+            RunSummary(
+                run_id=run_id,
+                suite_name=suite_name,
+                model=model,
+                started_at=datetime.fromisoformat(started),
+                finished_at=datetime.fromisoformat(finished) if finished else None,
+                total_cases=total,
+                passed_cases=passed,
+                errored_cases=errored,
+            )
+            for run_id, suite_name, model, started, finished, total, passed, errored in rows
+        ]
 
     def get_run(self, run_id: str) -> RunResult:
         """Load a run by full id or by a unique id prefix.
