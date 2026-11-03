@@ -171,12 +171,19 @@ class Score(_Model):
 
 
 class CaseResult(_Model):
-    """The outcome of running one case: output, scores and any error."""
+    """The outcome of running one case: output, scores and any error.
+
+    ``latency_ms`` is the wall-clock time the runner spent getting the output
+    (including provider retries), also recorded when the case failed;
+    ``cost_usd`` comes from the provider's output when it reports one.
+    """
 
     case_id: str
     output: ModelOutput | None = None
     scores: tuple[Score, ...] = ()
     error: str | None = None
+    latency_ms: float | None = Field(default=None, ge=0)
+    cost_usd: float | None = Field(default=None, ge=0)
 
 
 class RunResult(_Model):
