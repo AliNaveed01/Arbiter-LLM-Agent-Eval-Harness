@@ -14,6 +14,7 @@ from agentgauge.core.models import (
     CompletionRequest,
     GenerationParams,
     RunResult,
+    Score,
     Suite,
     TestCase,
 )
@@ -32,10 +33,12 @@ async def run_suite(
 ) -> RunResult:
     """Run every case in ``suite`` through ``provider`` and score the outputs.
 
-    At most ``concurrency`` cases are in flight at once. Scorers are created
-    from ``suite.scorers`` before anything runs, so a bad scorer name or params
-    raises ``ScorerConfigError`` immediately. Results are returned in suite
-    order regardless of completion order.
+    A case whose provider call or scorer raises is recorded with an ``error``
+    and the rest of the run continues. At most ``concurrency`` cases are in
+    flight at once. Scorers are created from ``suite.scorers`` before anything
+    runs, so a bad scorer name or params raises ``ScorerConfigError``
+    immediately. Results are returned in suite order regardless of completion
+    order.
     """
     if concurrency < 1:
         raise ValueError("concurrency must be at least 1")
@@ -71,13 +74,30 @@ async def _run_case(
 ) -> CaseResult:
     request = CompletionRequest(messages=case.input, params=params)
     start = clock()
-    output = await provider.complete(request)
+    try:
+        output = await provider.complete(request)
+    except Exception as exc:  # one failing case must never kill the run
+        return CaseResult(
+            case_id=case.id, error=_describe(exc), latency_ms=(clock() - start) * 1000
+        )
     latency_ms = (clock() - start) * 1000
-    scores = tuple([await scorer.score(case, output) for scorer in scorers])
+    scores: list[Score] = []
+    errors: list[str] = []
+    for scorer in scorers:
+        try:
+            scores.append(await scorer.score(case, output))
+        except Exception as exc:  # a broken scorer fails the case, not the run
+            errors.append(f"scorer {scorer.name!r} failed: {_describe(exc)}")
     return CaseResult(
         case_id=case.id,
         output=output,
-        scores=scores,
+        scores=tuple(scores),
+        error="; ".join(errors) or None,
         latency_ms=latency_ms,
         cost_usd=output.cost_usd,
     )
+
+
+def _describe(exc: Exception) -> str:
+    message = str(exc)
+    return f"{type(exc).__name__}: {message}" if message else type(exc).__name__
