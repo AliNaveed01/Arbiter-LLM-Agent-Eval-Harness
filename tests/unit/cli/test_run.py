@@ -189,3 +189,49 @@ def test_default_database_is_under_the_working_directory(
     result = runner.invoke(app, ["run", str(write(tmp_path, FAKE_SUITE))])
     assert result.exit_code == 0
     assert (tmp_path / ".agentgauge" / "runs.db").exists()
+
+
+def list_runs(tmp_path: Path, *args: str) -> tuple[int, str]:
+    result = runner.invoke(app, ["runs", "list", "--db", str(tmp_path / "runs.db"), *args])
+    return result.exit_code, result.output
+
+
+def test_runs_list_shows_stored_runs_newest_first(tmp_path: Path) -> None:
+    suite = str(write(tmp_path, FAKE_SUITE))
+    invoke(tmp_path, suite)
+    invoke(tmp_path, suite, "--model", "second")
+    code, output = list_runs(tmp_path)
+    assert code == 0
+    assert output.index("second") < output.index("scripted")
+    assert "arithmetic" in output
+    assert "UTC" in output
+
+
+def test_runs_list_limit(tmp_path: Path) -> None:
+    suite = str(write(tmp_path, FAKE_SUITE))
+    for name in ("first", "second", "third"):
+        invoke(tmp_path, suite, "--model", name)
+    code, output = list_runs(tmp_path, "--limit", "2")
+    assert code == 0
+    assert "third" in output and "second" in output and "first" not in output
+
+
+def test_runs_list_on_an_empty_database(tmp_path: Path) -> None:
+    code, output = list_runs(tmp_path)
+    assert code == 0
+    assert "No runs stored yet" in output
+
+
+def test_runs_list_with_an_unusable_database_is_a_config_error(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["runs", "list", "--db", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "cannot open run store" in result.output
+
+
+def test_runs_list_limit_must_be_positive(tmp_path: Path) -> None:
+    assert list_runs(tmp_path, "--limit", "0")[0] == 2
+
+
+def test_runs_without_a_subcommand_shows_help() -> None:
+    result = runner.invoke(app, ["runs"])
+    assert "list" in result.output
