@@ -1,0 +1,10 @@
+name: with-params
+scorers:
+  - exact_match
+  - name: numeric_tolerance
+    params:
+      abs_tol: 0.01
+cases:
+  - id: a
+    input: x
+    expected: "1"
