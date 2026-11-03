@@ -1,5 +1,6 @@
 """Run persistence."""
 
 from agentgauge.storage.migrations import StorageError
+from agentgauge.storage.store import RunStore
 
-__all__ = ["StorageError"]
+__all__ = ["RunStore", "StorageError"]
