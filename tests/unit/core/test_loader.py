@@ -101,3 +101,14 @@ def test_yaml_scorers_may_have_params() -> None:
         ScorerSpec(name="exact_match"),
         ScorerSpec(name="numeric_tolerance", params={"abs_tol": 0.01}),
     )
+
+
+def test_yaml_provider_block() -> None:
+    suite = load_suite(FIXTURES / "with_provider.yaml")
+    assert suite.provider is not None
+    assert (suite.provider.type, suite.provider.model) == ("fake", "scripted")
+    assert suite.provider.responses == {"2+2?": "4"}
+
+
+def test_provider_is_optional() -> None:
+    assert load_suite(FIXTURES / "valid.yaml").provider is None
