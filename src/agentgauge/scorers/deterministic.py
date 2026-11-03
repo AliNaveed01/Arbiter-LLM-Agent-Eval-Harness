@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 from agentgauge.core.models import ModelOutput, Score, TestCase
@@ -96,3 +97,49 @@ class Regex:
         return _verdict(
             self.name, passed, None if passed else f"no match for pattern /{compiled.pattern}/"
         )
+
+
+_NUMBER = re.compile(r"[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?")
+_THOUSANDS = re.compile(r"(?<=\d),(?=\d{3}(?!\d))")
+
+
+def _parse_number(text: str) -> float | None:
+    """The first finite number in ``text``, tolerating thousands separators."""
+    cleaned = _THOUSANDS.sub("", text.replace("\u2212", "-"))
+    match = _NUMBER.search(cleaned)
+    if match is None:
+        return None
+    value = float(match.group())
+    return value if math.isfinite(value) else None
+
+
+@register_scorer("numeric_tolerance")
+class NumericTolerance:
+    """First number in the output is within tolerance of the number in ``case.expected``.
+
+    Passes when ``|actual - expected| <= max(abs_tol, rel_tol * |expected|)``.
+    With both tolerances at 0 (the default) the numbers must be equal.
+    """
+
+    name = "numeric_tolerance"
+
+    def __init__(self, abs_tol: float = 0.0, rel_tol: float = 0.0) -> None:
+        for label, value in (("abs_tol", abs_tol), ("rel_tol", rel_tol)):
+            if not math.isfinite(value) or value < 0:
+                raise ScorerConfigError(f"{label} must be a non-negative number, got {value!r}")
+        self._abs_tol = abs_tol
+        self._rel_tol = rel_tol
+
+    async def score(self, case: TestCase, output: ModelOutput) -> Score:
+        if case.expected is None:
+            return _missing_expected(self.name)
+        expected = _parse_number(case.expected)
+        if expected is None:
+            return _verdict(self.name, False, f"expected value {case.expected!r} is not numeric")
+        actual = _parse_number(output.text)
+        if actual is None:
+            return _verdict(self.name, False, "no number found in output")
+        limit = max(self._abs_tol, self._rel_tol * abs(expected))
+        passed = abs(actual - expected) <= limit
+        reason = None if passed else f"{actual:g} is not within {limit:g} of {expected:g}"
+        return _verdict(self.name, passed, reason)

@@ -1,7 +1,7 @@
 """Scorers. Importing this package registers the built-in scorers."""
 
 from agentgauge.scorers.base import Scorer
-from agentgauge.scorers.deterministic import Contains, ExactMatch, Regex
+from agentgauge.scorers.deterministic import Contains, ExactMatch, NumericTolerance, Regex
 from agentgauge.scorers.registry import (
     ScorerConfigError,
     available_scorers,
@@ -13,6 +13,7 @@ from agentgauge.scorers.registry import (
 __all__ = [
     "Contains",
     "ExactMatch",
+    "NumericTolerance",
     "Regex",
     "Scorer",
     "ScorerConfigError",
