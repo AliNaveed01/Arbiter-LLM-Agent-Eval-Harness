@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import math
 import re
+from typing import Any
 
 from agentgauge.core.models import ModelOutput, Score, TestCase
+from agentgauge.scorers import schema as json_schema
 from agentgauge.scorers.registry import ScorerConfigError, register_scorer
 
 
@@ -143,3 +146,43 @@ class NumericTolerance:
         passed = abs(actual - expected) <= limit
         reason = None if passed else f"{actual:g} is not within {limit:g} of {expected:g}"
         return _verdict(self.name, passed, reason)
+
+
+_FENCE = re.compile(r"^```[A-Za-z0-9_-]*[ \t]*\n(.*?)\n?```$", re.DOTALL)
+
+
+def _strip_code_fence(text: str) -> str:
+    """Unwrap a single Markdown code fence, which models often put around JSON."""
+    text = text.strip()
+    match = _FENCE.match(text)
+    return match.group(1).strip() if match else text
+
+
+@register_scorer("json_schema")
+class JsonSchema:
+    """Output is valid JSON that satisfies the ``schema`` param.
+
+    A single surrounding Markdown code fence is ignored. Only the JSON Schema
+    subset documented in :mod:`agentgauge.scorers.schema` is supported; a schema
+    using anything else is rejected when the scorer is created.
+    """
+
+    name = "json_schema"
+
+    def __init__(self, schema: dict[str, Any]) -> None:
+        try:
+            json_schema.check_schema(schema)
+        except json_schema.SchemaError as exc:
+            raise ScorerConfigError(f"invalid json_schema schema: {exc}") from exc
+        self._schema = schema
+
+    async def score(self, case: TestCase, output: ModelOutput) -> Score:
+        try:
+            instance: Any = json.loads(_strip_code_fence(output.text))
+        except json.JSONDecodeError as exc:
+            return _verdict(self.name, False, f"output is not valid JSON: {exc.msg}")
+        errors = json_schema.validate(instance, self._schema)
+        if not errors:
+            return _verdict(self.name, True)
+        extra = f" (+{len(errors) - 1} more)" if len(errors) > 1 else ""
+        return _verdict(self.name, False, errors[0] + extra)
