@@ -185,6 +185,11 @@ class CaseResult(_Model):
     latency_ms: float | None = Field(default=None, ge=0)
     cost_usd: float | None = Field(default=None, ge=0)
 
+    @property
+    def passed(self) -> bool:
+        """True when the case ran without error and every score passed."""
+        return self.error is None and all(score.passed for score in self.scores)
+
 
 class RunResult(_Model):
     """The outcome of running a whole suite against one model."""
