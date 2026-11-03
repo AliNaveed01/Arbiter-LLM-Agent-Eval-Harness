@@ -198,3 +198,72 @@ class TestNumericTolerance:
     def test_invalid_tolerances_are_config_errors(self, params: dict[str, float]) -> None:
         with pytest.raises(ScorerConfigError, match="non-negative"):
             numeric(**params)
+
+
+SCHEMA = {
+    "type": "object",
+    "required": ["name", "age"],
+    "properties": {"name": {"type": "string"}, "age": {"type": "integer", "minimum": 0}},
+}
+
+
+def json_scorer(schema: dict[str, object] = SCHEMA) -> Scorer:
+    return create_scorer(ScorerSpec(name="json_schema", params={"schema": schema}))
+
+
+class TestJsonSchema:
+    def test_valid_json_passes(self) -> None:
+        result = score(json_scorer(), '{"name": "Ada", "age": 36}')
+        assert (result.scorer, result.value, result.passed, result.reason) == (
+            "json_schema",
+            1.0,
+            True,
+            None,
+        )
+
+    def test_schema_violation_fails_with_first_error(self) -> None:
+        result = score(json_scorer(), '{"name": "Ada", "age": "old"}')
+        assert not result.passed
+        assert result.reason == "$.age: expected integer, got string"
+
+    def test_reason_counts_additional_errors(self) -> None:
+        result = score(json_scorer(), '{"age": -1}')
+        assert result.reason == "$: missing required property 'name' (+1 more)"
+
+    def test_invalid_json_fails_with_reason(self) -> None:
+        result = score(json_scorer(), '{"name": ')
+        assert not result.passed
+        assert result.reason is not None
+        assert result.reason.startswith("output is not valid JSON")
+
+    def test_empty_output_is_invalid_json(self) -> None:
+        assert not score(json_scorer(), "").passed
+
+    def test_surrounding_whitespace_is_ignored(self) -> None:
+        assert score(json_scorer(), '\n  {"name": "Ada", "age": 1}\n').passed
+
+    @pytest.mark.parametrize(
+        "fence", ["```json\n{body}\n```", "```\n{body}\n```", "```JSON\n{body}```"]
+    )
+    def test_code_fence_is_stripped(self, fence: str) -> None:
+        text = fence.replace("{body}", '{"name": "Ada", "age": 1}')
+        assert score(json_scorer(), f"  {text}  ").passed
+
+    def test_prose_around_json_is_not_valid(self) -> None:
+        assert not score(json_scorer(), 'Here: {"name": "Ada", "age": 1}').passed
+
+    def test_non_object_json_against_object_schema(self) -> None:
+        result = score(json_scorer(), "[1, 2]")
+        assert result.reason == "$: expected object, got array"
+
+    def test_scalar_schema(self) -> None:
+        assert score(json_scorer({"type": "integer"}), "42").passed
+        assert not score(json_scorer({"type": "integer"}), "4.5").passed
+
+    def test_unsupported_keyword_is_a_config_error(self) -> None:
+        with pytest.raises(ScorerConfigError, match="unsupported keyword '\\$ref'"):
+            json_scorer({"$ref": "#/defs/x"})
+
+    def test_missing_schema_param_is_a_config_error(self) -> None:
+        with pytest.raises(ScorerConfigError, match="invalid params"):
+            create_scorer("json_schema")
