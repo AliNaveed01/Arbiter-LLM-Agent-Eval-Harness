@@ -1,0 +1,33 @@
+# A self-contained example: the "model" is a scripted fake provider, so this runs
+# offline with no API key. To try a real model, see the README.
+name: basic
+description: Four general-knowledge questions, one of which the scripted model gets wrong.
+
+provider:
+  type: fake
+  model: scripted-demo
+  responses:
+    "What is 2 + 2?": "4"
+    "What is the capital of France?": "Paris"
+    "What is the capital of Australia?": "Sydney"
+    "What is the chemical symbol for gold?": "Au"
+
+scorers:
+  - exact_match
+
+cases:
+  - id: arithmetic
+    input: "What is 2 + 2?"
+    expected: "4"
+
+  - id: capital-france
+    input: "What is the capital of France?"
+    expected: "Paris"
+
+  - id: capital-australia
+    input: "What is the capital of Australia?"
+    expected: "Canberra"
+
+  - id: gold-symbol
+    input: "What is the chemical symbol for gold?"
+    expected: "Au"
