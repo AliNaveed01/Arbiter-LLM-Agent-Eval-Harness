@@ -7,7 +7,32 @@ from datetime import UTC, datetime
 
 Migration = tuple[int, str]
 
-MIGRATIONS: tuple[Migration, ...] = ()
+_INITIAL_SCHEMA = """
+CREATE TABLE runs (
+    run_id      TEXT PRIMARY KEY,
+    suite_name  TEXT NOT NULL,
+    model       TEXT NOT NULL,
+    started_at  TEXT NOT NULL,
+    finished_at TEXT
+);
+
+CREATE TABLE case_results (
+    run_id      TEXT    NOT NULL REFERENCES runs (run_id) ON DELETE CASCADE,
+    position    INTEGER NOT NULL,
+    case_id     TEXT    NOT NULL,
+    passed      INTEGER NOT NULL,
+    error       TEXT,
+    latency_ms  REAL,
+    cost_usd    REAL,
+    output_json TEXT,
+    scores_json TEXT    NOT NULL,
+    PRIMARY KEY (run_id, position)
+);
+
+CREATE INDEX idx_runs_started_at ON runs (started_at);
+"""
+
+MIGRATIONS: tuple[Migration, ...] = ((1, _INITIAL_SCHEMA),)
 
 
 class StorageError(Exception):
