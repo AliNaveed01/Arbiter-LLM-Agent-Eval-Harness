@@ -226,3 +226,63 @@ def test_database_from_a_newer_version_is_refused(tmp_path: Path) -> None:
 def test_unopenable_path_is_a_storage_error(tmp_path: Path) -> None:
     with pytest.raises(StorageError, match="cannot open run store"):
         RunStore(tmp_path)  # a directory, not a database file
+
+
+class SpyConnection:
+    """Wraps a real connection and records whether it was closed."""
+
+    def __init__(self, real: sqlite3.Connection) -> None:
+        self._real = real
+        self.closed = False
+
+    def close(self) -> None:
+        self.closed = True
+        self._real.close()
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._real, name)
+
+
+def test_connection_is_closed_when_opening_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "runs.db"
+    RunStore(path).close()
+    conn = sqlite3.connect(path)
+    conn.execute("INSERT INTO schema_migrations VALUES (999, '2030-01-01T00:00:00+00:00')")
+    conn.commit()
+    conn.close()
+
+    spies: list[SpyConnection] = []
+    real_connect = sqlite3.connect
+
+    def spying_connect(*args: object, **kwargs: object) -> SpyConnection:
+        spy = SpyConnection(real_connect(*args, **kwargs))  # pyright: ignore[reportArgumentType, reportCallIssue]
+        spies.append(spy)
+        return spy
+
+    monkeypatch.setattr(sqlite3, "connect", spying_connect)
+    with pytest.raises(StorageError):
+        RunStore(path)
+    assert [spy.closed for spy in spies] == [True]
+
+
+def test_connection_is_closed_on_sqlite_errors_while_opening(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spies: list[SpyConnection] = []
+    real_connect = sqlite3.connect
+
+    def spying_connect(*args: object, **kwargs: object) -> SpyConnection:
+        spy = SpyConnection(real_connect(*args, **kwargs))  # pyright: ignore[reportArgumentType, reportCallIssue]
+        spies.append(spy)
+        return spy
+
+    monkeypatch.setattr(sqlite3, "connect", spying_connect)
+    monkeypatch.setattr(
+        "agentgauge.storage.store.migrate",
+        lambda conn: (_ for _ in ()).throw(sqlite3.OperationalError("disk I/O error")),
+    )
+    with pytest.raises(StorageError, match="disk I/O error"):
+        RunStore(tmp_path / "runs.db")
+    assert [spy.closed for spy in spies] == [True]
