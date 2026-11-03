@@ -235,3 +235,54 @@ def test_runs_list_limit_must_be_positive(tmp_path: Path) -> None:
 def test_runs_without_a_subcommand_shows_help() -> None:
     result = runner.invoke(app, ["runs"])
     assert "list" in result.output
+
+
+def show(tmp_path: Path, run_id: str) -> tuple[int, str]:
+    result = runner.invoke(app, ["runs", "show", run_id, "--db", str(tmp_path / "runs.db")])
+    return result.exit_code, result.output
+
+
+def stored_id(tmp_path: Path) -> str:
+    with RunStore(tmp_path / "runs.db") as store:
+        return store.list_runs()[0].run_id
+
+
+def test_runs_show_prints_the_run_with_outputs(tmp_path: Path) -> None:
+    invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)))
+    code, output = show(tmp_path, stored_id(tmp_path))
+    assert code == 0
+    assert "suite arithmetic  model scripted" in output
+    assert "Output" in output
+    assert "exact_match=pass" in output and "exact_match=fail" in output
+    assert "exact_match: expected '6'" in output
+    assert "1/2 passed" in output
+
+
+def test_runs_show_accepts_a_prefix(tmp_path: Path) -> None:
+    invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)))
+    run_id = stored_id(tmp_path)
+    code, output = show(tmp_path, run_id[:8])
+    assert code == 0
+    assert run_id[:8] in output
+
+
+def test_runs_show_unknown_id_exits_1(tmp_path: Path) -> None:
+    invoke(tmp_path, str(write(tmp_path, FAKE_SUITE)))
+    code, output = show(tmp_path, "zzzz")
+    assert code == 1
+    assert "error: no run matches 'zzzz'" in output
+
+
+def test_runs_show_ambiguous_prefix_exits_1(tmp_path: Path) -> None:
+    suite = str(write(tmp_path, FAKE_SUITE))
+    for _ in range(40):  # enough runs that a one-character prefix is ambiguous
+        invoke(tmp_path, suite)
+    code, output = show(tmp_path, stored_id(tmp_path)[:1])
+    assert code == 1
+    assert "ambiguous" in output
+
+
+def test_runs_show_with_an_unusable_database_exits_2(tmp_path: Path) -> None:
+    result = runner.invoke(app, ["runs", "show", "abc", "--db", str(tmp_path)])
+    assert result.exit_code == 2
+    assert "cannot open run store" in result.output
