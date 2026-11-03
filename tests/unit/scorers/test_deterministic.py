@@ -1,7 +1,9 @@
 import asyncio
 
+import pytest
+
 from agentgauge.core import ModelOutput, Score, ScorerSpec, TestCase
-from agentgauge.scorers import Scorer, create_scorer
+from agentgauge.scorers import Scorer, ScorerConfigError, create_scorer
 
 
 def score(scorer: Scorer, text: str, expected: str | None = None) -> Score:
@@ -71,3 +73,51 @@ class TestContains:
     def test_missing_expected_fails_with_reason(self) -> None:
         result = score(create_scorer("contains"), "x")
         assert (result.passed, result.reason) == (False, "case has no expected value")
+
+
+def regex(**params: object) -> Scorer:
+    return create_scorer(ScorerSpec(name="regex", params=dict(params)))
+
+
+class TestRegex:
+    def test_pattern_param_searches_anywhere(self) -> None:
+        assert score(regex(pattern=r"\d{3}-\d{4}"), "call 555-1234 now").passed
+
+    def test_no_match_fails_with_reason(self) -> None:
+        result = score(regex(pattern=r"^\d+$"), "abc")
+        assert not result.passed
+        assert result.reason == "no match for pattern /^\\d+$/"
+
+    def test_full_requires_whole_output(self) -> None:
+        assert not score(regex(pattern=r"\d+", full=True), "42 apples").passed
+        assert score(regex(pattern=r"\d+", full=True), "42").passed
+
+    def test_ignore_case(self) -> None:
+        assert not score(regex(pattern="paris"), "PARIS").passed
+        assert score(regex(pattern="paris", ignore_case=True), "PARIS").passed
+
+    def test_pattern_falls_back_to_expected(self) -> None:
+        assert score(regex(), "order #123", r"#\d+").passed
+        assert not score(regex(), "order", r"#\d+").passed
+
+    def test_param_wins_over_expected(self) -> None:
+        assert score(regex(pattern="a"), "a", "zzz").passed
+
+    def test_no_pattern_and_no_expected_fails_with_reason(self) -> None:
+        result = score(regex(), "x")
+        assert not result.passed
+        assert result.reason == "no pattern param and case has no expected value"
+
+    def test_invalid_pattern_param_is_a_config_error(self) -> None:
+        with pytest.raises(ScorerConfigError, match="invalid regex pattern '\\('"):
+            regex(pattern="(")
+
+    def test_invalid_expected_pattern_fails_the_case(self) -> None:
+        result = score(regex(), "x", "(")
+        assert not result.passed
+        assert result.reason is not None
+        assert result.reason.startswith("invalid regex '('")
+
+    def test_multiline_output(self) -> None:
+        assert score(regex(pattern=r"^done$"), "line1\ndone").passed is False
+        assert score(regex(pattern=r"(?m)^done$"), "line1\ndone").passed
