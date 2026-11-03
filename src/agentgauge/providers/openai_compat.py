@@ -22,6 +22,7 @@ from agentgauge.core.models import (
 )
 from agentgauge.providers.base import ProviderError
 
+DEFAULT_BASE_URL = "https://api.openai.com/v1"
 RETRYABLE_STATUS = frozenset({408, 409, 429, 500, 502, 503, 504})
 
 
@@ -94,7 +95,7 @@ class OpenAICompatProvider:
         self,
         model: str,
         *,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str = DEFAULT_BASE_URL,
         api_key: str | None = None,
         params: GenerationParams | None = None,
         timeout: float = 60.0,
