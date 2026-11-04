@@ -182,7 +182,7 @@ def render_calibration(
     summary.add_row(f"kappa ({report.weighting} weighting)", kappa)
     console.print(summary)
 
-    matrix = Table(title="Confusion matrix (rows: human, columns: judge)")
+    matrix = Table(title="Confusion matrix")
     matrix.add_column("human \\ judge")
     for label in report.classes:
         matrix.add_column(str(label), justify="right")
