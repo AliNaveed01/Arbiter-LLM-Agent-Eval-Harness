@@ -8,10 +8,14 @@ happen to occur in a small sample.
 
 from __future__ import annotations
 
+import math
+import random
 from collections.abc import Sequence
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+from agentgauge.judge.rubric import Scale
 
 Weighting = Literal["none", "quadratic"]
 
@@ -114,3 +118,91 @@ def cohens_kappa(
     if expected == 0.0:
         return None
     return 1.0 - observed / expected
+
+
+def bootstrap_kappa_ci(
+    human: Sequence[int],
+    judge: Sequence[int],
+    classes: Sequence[int],
+    weighting: Weighting = "none",
+    *,
+    resamples: int = 1000,
+    confidence: float = 0.95,
+    seed: int = 0,
+) -> tuple[float, float] | None:
+    """A percentile bootstrap confidence interval for kappa.
+
+    Cases are resampled with replacement ``resamples`` times from a generator
+    seeded with ``seed``, so the interval is reproducible. Resamples where
+    kappa is undefined are skipped; ``None`` is returned if all of them are.
+    With few cases the interval is wide, which is the point: it shows how little
+    a small label set can tell you.
+    """
+    _check(human, judge, classes)
+    if resamples < 1:
+        raise ValueError("resamples must be at least 1")
+    if not 0 < confidence < 1:
+        raise ValueError("confidence must be between 0 and 1")
+    rng = random.Random(seed)
+    n = len(human)
+    values: list[float] = []
+    for _ in range(resamples):
+        picks = [rng.randrange(n) for _ in range(n)]
+        kappa = cohens_kappa(
+            [human[i] for i in picks], [judge[i] for i in picks], classes, weighting
+        )
+        if kappa is not None:
+            values.append(kappa)
+    if not values:
+        return None
+    values.sort()
+    tail = (1 - confidence) / 2
+    low = values[math.floor(tail * (len(values) - 1))]
+    high = values[math.ceil((1 - tail) * (len(values) - 1))]
+    return low, high
+
+
+class CalibrationReport(BaseModel):
+    """How well a judge's scores agree with human labels."""
+
+    model_config = ConfigDict(frozen=True)
+
+    n: int
+    scale: Scale
+    weighting: Weighting
+    accuracy: float
+    kappa: float | None
+    kappa_ci: tuple[float, float] | None
+    classes: tuple[int, ...]
+    confusion: tuple[tuple[int, ...], ...]
+    per_class: tuple[ClassStats, ...]
+
+
+def calibrate(
+    human: Sequence[int],
+    judge: Sequence[int],
+    scale: Scale,
+    *,
+    resamples: int = 1000,
+    seed: int = 0,
+) -> CalibrationReport:
+    """Compare ``judge`` scores with ``human`` labels on ``scale``.
+
+    Ordinal scales use quadratic-weighted kappa; binary scales use plain kappa.
+    """
+    classes = scale.values
+    weighting: Weighting = "quadratic" if scale.kind == "ordinal" else "none"
+    matrix = confusion_matrix(human, judge, classes)
+    return CalibrationReport(
+        n=len(human),
+        scale=scale,
+        weighting=weighting,
+        accuracy=accuracy(human, judge),
+        kappa=cohens_kappa(human, judge, classes, weighting),
+        kappa_ci=bootstrap_kappa_ci(
+            human, judge, classes, weighting, resamples=resamples, seed=seed
+        ),
+        classes=classes,
+        confusion=matrix,
+        per_class=per_class_stats(matrix, classes),
+    )
