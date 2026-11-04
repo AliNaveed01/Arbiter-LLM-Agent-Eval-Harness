@@ -8,7 +8,14 @@ agentgauge is an open-source regression-testing harness for LLM agents. It answe
 
 ## Quickstart
 
-You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/). agentgauge is not on PyPI yet, so run it from a clone:
+You need Python 3.12 or newer and [uv](https://docs.astral.sh/uv/). Install it from PyPI (the package is `agentgauge-eval`, the command is `agentgauge`):
+
+```bash
+uv tool install agentgauge-eval
+agentgauge --help
+```
+
+To run the bundled example, work from a clone:
 
 ```bash
 git clone https://github.com/AliNaveed01/agentgauge.git
