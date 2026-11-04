@@ -9,8 +9,11 @@ happen to occur in a small sample.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
+
+Weighting = Literal["none", "quadratic"]
 
 
 class ClassStats(BaseModel):
@@ -75,3 +78,39 @@ def per_class_stats(
             )
         )
     return tuple(stats)
+
+
+def cohens_kappa(
+    human: Sequence[int],
+    judge: Sequence[int],
+    classes: Sequence[int],
+    weighting: Weighting = "none",
+) -> float | None:
+    """Cohen's kappa: agreement beyond what the two raters' score habits give by chance.
+
+    ``weighting="quadratic"`` penalises a disagreement by the squared distance
+    between the scores, so a 4 against a 5 costs far less than a 1 against a 5;
+    use it for ordinal scales. 1 is perfect agreement, 0 is chance level and
+    negative is worse than chance.
+
+    Returns ``None`` when kappa is undefined: when chance agreement is already
+    perfect, which happens when both raters used a single score for every case.
+    """
+    matrix = confusion_matrix(human, judge, classes)
+    n = len(human)
+    size = len(classes)
+    row_totals = [sum(row) / n for row in matrix]
+    col_totals = [sum(matrix[i][j] for i in range(size)) / n for j in range(size)]
+    span = (classes[-1] - classes[0]) or 1
+    observed = expected = 0.0
+    for i in range(size):
+        for j in range(size):
+            if weighting == "quadratic":
+                weight = ((classes[i] - classes[j]) / span) ** 2
+            else:
+                weight = 0.0 if i == j else 1.0
+            observed += weight * matrix[i][j] / n
+            expected += weight * row_totals[i] * col_totals[j]
+    if expected == 0.0:
+        return None
+    return 1.0 - observed / expected
