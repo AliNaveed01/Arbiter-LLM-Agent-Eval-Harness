@@ -11,8 +11,11 @@ from pydantic import ValidationError
 from rich.console import Console
 
 from agentgauge import __version__
-from agentgauge.cli.render import render_run, render_run_list
+from agentgauge.calibration import LabelLoadError, load_labels
+from agentgauge.calibration import calibrate as compute_calibration
+from agentgauge.cli.render import render_calibration, render_run, render_run_list
 from agentgauge.core import ProviderConfig, RunResult, Suite, SuiteLoadError, load_suite
+from agentgauge.judge import Scale
 from agentgauge.providers import ProviderConfigError, build_provider
 from agentgauge.runner import run_suite
 from agentgauge.scorers import ScorerConfigError
@@ -169,3 +172,101 @@ def runs_show(
         except StorageError as exc:  # unknown id or ambiguous prefix
             _fail(str(exc), code=1)
     render_run(Console(), run, verbose=True)
+
+
+@app.command()
+def calibrate(
+    suite_path: Annotated[
+        Path, typer.Argument(metavar="SUITE", help="Suite file (.yaml, .yml or .jsonl).")
+    ],
+    labels_path: Annotated[
+        Path, typer.Option("--labels", help="Human labels file (.yaml, .yml or .jsonl).")
+    ],
+    scorer: Annotated[
+        str, typer.Option(help="Name of the judge scorer in the suite.")
+    ] = "llm_judge",
+    provider_type: Annotated[
+        str | None,
+        typer.Option("--provider", help="Provider type: openai_compat or fake."),
+    ] = None,
+    model: Annotated[str | None, typer.Option(help="Model name; overrides the suite.")] = None,
+    base_url: Annotated[
+        str | None, typer.Option(help="OpenAI-compatible endpoint; overrides the suite.")
+    ] = None,
+    api_key_env: Annotated[
+        str | None, typer.Option(help="Environment variable holding the API key.")
+    ] = None,
+    concurrency: Annotated[int, typer.Option(min=1, help="Maximum cases in flight at once.")] = 8,
+) -> None:
+    """Measure how well SUITE's judge agrees with human labels.
+
+    Runs the model under test and the judge scorer on the labelled cases, then
+    compares the judge's scores with the labels: accuracy, Cohen's kappa with a
+    95% bootstrap interval, a confusion matrix and per-class precision and
+    recall. Warns when kappa is below 0.6. Nothing is stored in the run
+    database; judge replies are cached, so repeating this is free.
+
+    Exits 2 on configuration problems (bad suite or labels, labels for unknown
+    cases or off the scale, no such scorer) and 1 when no labelled case could be
+    judged. A low kappa is a warning, not a failure.
+    """
+    try:
+        suite = load_suite(suite_path)
+        labels = {label.case_id: label for label in load_labels(labels_path)}
+        config = _resolve_provider(suite.provider, provider_type, model, base_url, api_key_env)
+    except (SuiteLoadError, LabelLoadError) as exc:
+        _fail(str(exc))
+    specs = tuple(spec for spec in suite.scorers if spec.name == scorer)
+    if len(specs) != 1:
+        found = "no" if not specs else "more than one"
+        _fail(f"suite {suite.name!r} has {found} scorer named {scorer!r}; calibrate needs one")
+    known = {case.id for case in suite.cases}
+    unknown = sorted(set(labels) - known)
+    if unknown:
+        _fail(f"labels refer to cases that are not in the suite: {', '.join(unknown)}")
+    labelled = suite.model_copy(
+        update={
+            "scorers": specs,
+            "cases": tuple(case for case in suite.cases if case.id in labels),
+        }
+    )
+    try:
+        result = anyio.run(_execute, labelled, config, concurrency)
+    except (ScorerConfigError, ProviderConfigError) as exc:
+        _fail(str(exc))
+
+    human: list[int] = []
+    judged: list[int] = []
+    skipped: list[str] = []
+    scale: Scale | None = None
+    judge_model = result.model
+    for case in result.results:
+        score = next((s for s in case.scores if s.scorer == scorer), None)
+        if case.error is not None or score is None:
+            skipped.append(case.case_id)
+            continue
+        raw_scale = score.details.get("scale")
+        if raw_scale is None:
+            _fail(f"scorer {scorer!r} does not report a scale; calibrate needs an LLM judge")
+        scale = Scale.model_validate(raw_scale)
+        judge_model = str(score.details.get("judge_model", judge_model))
+        human.append(labels[case.case_id].label)
+        judged.append(round(score.value))
+    if scale is None:
+        _fail("no labelled case could be judged; nothing to compare", code=1)
+    off_scale = sorted(
+        case_id
+        for case_id, label in labels.items()
+        if case_id not in skipped and label.label not in scale.values
+    )
+    if off_scale:
+        _fail(f"labels outside the judge's scale {list(scale.values)} for: {', '.join(off_scale)}")
+    report = compute_calibration(human, judged, scale)
+    render_calibration(
+        Console(),
+        report,
+        suite_name=suite.name,
+        judge_model=judge_model,
+        skipped=skipped,
+        unlabelled=len(suite.cases) - len(labels),
+    )
