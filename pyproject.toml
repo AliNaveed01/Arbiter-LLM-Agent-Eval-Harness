@@ -1,5 +1,5 @@
 [project]
-name = "agentgauge"
+name = "agentgauge-eval"
 dynamic = ["version"]
 description = "Regression testing for LLM agents"
 readme = "README.md"
