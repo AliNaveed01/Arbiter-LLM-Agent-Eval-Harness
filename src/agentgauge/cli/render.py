@@ -11,10 +11,12 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 
+from agentgauge.calibration import CalibrationReport
 from agentgauge.core.models import CaseResult, RunResult
 from agentgauge.storage import RunSummary
 
 ID_WIDTH = 8
+KAPPA_TRUSTED = 0.6
 OUTPUT_PREVIEW = 60
 
 
@@ -138,3 +140,72 @@ def render_run_list(console: Console, summaries: Sequence[RunSummary]) -> None:
             Text(str(s.errored_cases)),
         )
     console.print(table)
+
+
+def _ratio(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:.2f}"
+
+
+def kappa_warning(report: CalibrationReport) -> str | None:
+    """A warning when kappa says the judge cannot be trusted, else ``None``."""
+    if report.kappa is None:
+        return (
+            "kappa is undefined because the judge and the labels each used a single score "
+            "throughout; this sample cannot show that the judge is trustworthy."
+        )
+    if report.kappa < KAPPA_TRUSTED:
+        return (
+            f"kappa {report.kappa:.2f} is below {KAPPA_TRUSTED}: this judge is not trustworthy "
+            "against these labels. Revise the rubric or prompt, or use a stronger judge model, "
+            "and calibrate again."
+        )
+    return None
+
+
+def render_calibration(
+    console: Console,
+    report: CalibrationReport,
+    *,
+    suite_name: str,
+    judge_model: str,
+    skipped: Sequence[str] = (),
+    unlabelled: int = 0,
+) -> None:
+    """Print a calibration report: headline numbers, confusion matrix, per-class table."""
+    console.print(Text(f"calibration of {suite_name}  judge {judge_model}", style="bold"))
+    summary = Table(show_header=False, box=None, pad_edge=False)
+    summary.add_row("cases compared", str(report.n))
+    summary.add_row("accuracy", f"{report.accuracy:.2f}")
+    kappa = "undefined" if report.kappa is None else f"{report.kappa:.2f}"
+    if report.kappa_ci is not None:
+        kappa += f"  (95% CI {report.kappa_ci[0]:.2f} to {report.kappa_ci[1]:.2f})"
+    summary.add_row(f"kappa ({report.weighting} weighting)", kappa)
+    console.print(summary)
+
+    matrix = Table(title="Confusion matrix (rows: human, columns: judge)")
+    matrix.add_column("human \\ judge")
+    for label in report.classes:
+        matrix.add_column(str(label), justify="right")
+    for label, row in zip(report.classes, report.confusion, strict=True):
+        matrix.add_row(str(label), *(str(count) for count in row))
+    console.print(matrix)
+
+    classes = Table(title="Per class (human label is truth)")
+    for heading in ("score", "support", "precision", "recall"):
+        classes.add_column(heading, justify="right")
+    for stats in report.per_class:
+        classes.add_row(
+            str(stats.label), str(stats.support), _ratio(stats.precision), _ratio(stats.recall)
+        )
+    console.print(classes)
+
+    if skipped:
+        console.print(
+            Text(f"{len(skipped)} labelled case(s) not compared (judge error): ", style="yellow")
+            + Text(", ".join(skipped))
+        )
+    if unlabelled:
+        console.print(f"{unlabelled} case(s) in the suite have no label and were ignored.")
+    warning = kappa_warning(report)
+    if warning is not None:
+        console.print(Text("Warning: ", style="bold yellow") + Text(warning, style="yellow"))
