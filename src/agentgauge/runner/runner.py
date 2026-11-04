@@ -38,7 +38,7 @@ async def run_suite(
     flight at once. Scorers are created from ``suite.scorers`` before anything
     runs, so a bad scorer name or params raises ``ScorerConfigError``
     immediately. Results are returned in suite order regardless of completion
-    order.
+    order. Scorers that define ``aclose`` are closed when the run ends.
     """
     if concurrency < 1:
         raise ValueError("concurrency must be at least 1")
@@ -51,9 +51,12 @@ async def run_suite(
         async with limiter:
             slots[index] = await _run_case(case, provider, scorers, params, clock)
 
-    async with anyio.create_task_group() as group:
-        for index, case in enumerate(suite.cases):
-            group.start_soon(worker, index, case)
+    try:
+        async with anyio.create_task_group() as group:
+            for index, case in enumerate(suite.cases):
+                group.start_soon(worker, index, case)
+    finally:
+        await _close_scorers(scorers)
     results = [result for result in slots if result is not None]
     return RunResult(
         run_id=uuid.uuid4().hex,
@@ -96,6 +99,14 @@ async def _run_case(
         latency_ms=latency_ms,
         cost_usd=output.cost_usd,
     )
+
+
+async def _close_scorers(scorers: Sequence[Scorer]) -> None:
+    """Release resources held by scorers (such as a judge's HTTP client)."""
+    for scorer in scorers:
+        close = getattr(scorer, "aclose", None)
+        if close is not None:
+            await close()
 
 
 def _describe(exc: Exception) -> str:

@@ -236,3 +236,24 @@ def test_cancellation_is_not_swallowed() -> None:
         return scope.cancelled_caught
 
     assert asyncio.run(go()) is True
+
+
+class Closable:
+    name = "closable"
+    closed = 0
+
+    async def score(self, case: TestCase, output: ModelOutput) -> Score:
+        return Score(scorer=self.name, value=1.0, passed=True)
+
+    async def aclose(self) -> None:
+        type(self).closed += 1
+
+
+def test_scorers_with_aclose_are_closed_after_the_run() -> None:
+    Closable.closed = 0
+    register_scorer("closable")(Closable)
+    try:
+        asyncio.run(run_suite(make_suite(scorers=("closable",)), answers()))
+    finally:
+        unregister_scorer("closable")
+    assert Closable.closed == 1
