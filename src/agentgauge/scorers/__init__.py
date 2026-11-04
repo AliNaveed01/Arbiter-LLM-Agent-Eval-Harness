@@ -8,6 +8,7 @@ from agentgauge.scorers.deterministic import (
     NumericTolerance,
     Regex,
 )
+from agentgauge.scorers.llm_judge import JudgeError, LLMJudge
 from agentgauge.scorers.registry import (
     ScorerConfigError,
     available_scorers,
@@ -20,6 +21,8 @@ __all__ = [
     "Contains",
     "ExactMatch",
     "JsonSchema",
+    "JudgeError",
+    "LLMJudge",
     "NumericTolerance",
     "Regex",
     "Scorer",
