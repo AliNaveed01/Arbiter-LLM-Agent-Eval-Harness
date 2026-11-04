@@ -1,0 +1,77 @@
+# A judge calibration example. Everything is scripted, so it runs offline with no API key:
+# the model under test is a fake provider, and so is the judge. The judge's replies are
+# written to be mostly right and slightly wrong on purpose, so calibration has something
+# to measure. See docs/calibration.md.
+name: judge-demo
+description: Twelve general-knowledge answers graded by a scripted judge.
+
+provider:
+  type: fake
+  model: scripted-demo
+  responses:
+    "What is the capital of France?": "Paris"
+    "What is 2 + 2?": "4"
+    "What is the capital of Australia?": "Sydney"
+    "What is the chemical symbol for gold?": "Au"
+    "Which is the largest planet in the solar system?": "Jupiter"
+    "Who wrote Hamlet?": "Christopher Marlowe"
+    "At sea level, at what temperature does water boil in Celsius?": "100 degrees Celsius"
+    "What is the square root of 144?": "14"
+    "Who painted the Mona Lisa?": "Leonardo da Vinci"
+    "How many continents are there?": "Seven, though some models count six"
+    "What is the capital of Canada?": "Toronto"
+    "At sea level, at what temperature does water freeze in Celsius?": "0 degrees Celsius"
+
+scorers:
+  - name: llm_judge
+    params:
+      rubric:
+        name: factual-accuracy
+        criteria:
+          - The answer is factually correct.
+          - The answer addresses the question that was asked.
+        scale: binary
+      judge:
+        type: fake
+        model: scripted-judge
+        # The judge sees a long prompt; "contains" lets a short key pick the reply.
+        match: contains
+        responses:
+          "Response to judge:\nParis": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\n4": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\nSydney": '{"score": 0, "reasoning": "scripted verdict"}'
+          "Response to judge:\nAu": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\nJupiter": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\nChristopher Marlowe": '{"score": 0, "reasoning": "scripted verdict"}'
+          "Response to judge:\n100 degrees Celsius": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\n14": '{"score": 0, "reasoning": "scripted verdict"}'
+          "Response to judge:\nLeonardo da Vinci": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\nSeven, though some models count six": '{"score": 0, "reasoning": "scripted verdict"}'
+          "Response to judge:\nToronto": '{"score": 1, "reasoning": "scripted verdict"}'
+          "Response to judge:\n0 degrees Celsius": '{"score": 1, "reasoning": "scripted verdict"}'
+
+cases:
+  - id: capital-france
+    input: "What is the capital of France?"
+  - id: arithmetic
+    input: "What is 2 + 2?"
+  - id: capital-australia
+    input: "What is the capital of Australia?"
+  - id: gold-symbol
+    input: "What is the chemical symbol for gold?"
+  - id: largest-planet
+    input: "Which is the largest planet in the solar system?"
+  - id: hamlet
+    input: "Who wrote Hamlet?"
+  - id: boiling-point
+    input: "At sea level, at what temperature does water boil in Celsius?"
+  - id: square-root
+    input: "What is the square root of 144?"
+  - id: mona-lisa
+    input: "Who painted the Mona Lisa?"
+  - id: continents
+    input: "How many continents are there?"
+  - id: capital-canada
+    input: "What is the capital of Canada?"
+  - id: freezing-point
+    input: "At sea level, at what temperature does water freeze in Celsius?"
