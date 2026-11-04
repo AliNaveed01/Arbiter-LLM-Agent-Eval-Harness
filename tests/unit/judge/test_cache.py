@@ -89,3 +89,10 @@ def test_write_failure_is_a_storage_error() -> None:
     cache._conn.execute("DROP TABLE judge_cache")  # pyright: ignore[reportPrivateUsage]
     with pytest.raises(StorageError, match="cannot write"):
         cache.put("k", "v")
+
+
+def test_a_file_that_is_not_a_database_is_a_storage_error(tmp_path: Path) -> None:
+    path = tmp_path / "judge.db"
+    path.write_bytes(b"this is not a sqlite database" * 100)
+    with pytest.raises(StorageError, match="cannot open judge cache"):
+        JudgeCache(path)
