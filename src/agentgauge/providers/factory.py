@@ -27,7 +27,12 @@ def build_provider(config: ProviderConfig, env: Mapping[str, str] | None = None)
     """
     environ = os.environ if env is None else env
     if config.type == "fake":
-        return FakeProvider(config.responses, params=config.params, name=config.model or "fake")
+        return FakeProvider(
+            config.responses,
+            params=config.params,
+            name=config.model or "fake",
+            match=config.match,
+        )
 
     if not config.model:
         raise ProviderConfigError("provider config needs a model")

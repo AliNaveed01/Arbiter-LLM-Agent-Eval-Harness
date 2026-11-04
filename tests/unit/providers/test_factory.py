@@ -96,3 +96,10 @@ def test_real_environment_is_used_by_default(monkeypatch: pytest.MonkeyPatch) ->
     assert isinstance(provider, OpenAICompatProvider)
     assert provider._headers == {"Authorization": "Bearer sk-from-env"}  # pyright: ignore[reportPrivateUsage]
     asyncio.run(provider.aclose())
+
+
+def test_fake_provider_match_mode_comes_from_the_config() -> None:
+    config = ProviderConfig(type="fake", responses={"cat": "meow"}, match="contains")
+    provider = build_provider(config)
+    request = CompletionRequest(messages=(Message(role="user", content="a cat sat"),))
+    assert asyncio.run(provider.complete(request)).text == "meow"

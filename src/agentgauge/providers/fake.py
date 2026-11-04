@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from typing import Literal
 
 from agentgauge.core.models import (
     CompletionRequest,
@@ -25,9 +26,12 @@ class FakeResponse:
 class FakeProvider:
     """Returns canned responses and never touches the network.
 
-    Responses are matched on the content of the last user message. Output is a
-    pure function of the request, so the same request always yields the same
-    result.
+    Responses are matched on the content of the last user message. With the
+    default ``match="exact"`` a key must equal that content. With
+    ``match="contains"`` a key matches when it appears anywhere in it, and the
+    first matching key (in insertion order) wins; this suits long, generated
+    prompts such as a judge's. Output is a pure function of the request, so the
+    same request always yields the same result.
     """
 
     def __init__(
@@ -39,11 +43,13 @@ class FakeProvider:
         params: GenerationParams | None = None,
         latency_ms: float = 0.0,
         name: str = "fake",
+        match: Literal["exact", "contains"] = "exact",
     ) -> None:
         self._responses = dict(responses or {})
         self._default = default
         self._errors = dict(errors or {})
         self._latency_ms = latency_ms
+        self._match = match
         self._name = name
         self.default_params = params or GenerationParams()
         self.calls: list[CompletionRequest] = []
@@ -59,14 +65,14 @@ class FakeProvider:
             (request.params or GenerationParams()).merged_over(self.default_params)
         )
         key = _last_user_content(request.messages)
-        if key in self._errors:
-            raise self._errors[key]
-        if key in self._responses:
-            response = self._responses[key]
-        elif self._default is not None:
+        error = self._lookup(self._errors, key)
+        if error is not None:
+            raise error
+        response = self._lookup(self._responses, key)
+        if response is None:
+            if self._default is None:
+                raise KeyError(f"FakeProvider has no response for user message: {key!r}")
             response = self._default
-        else:
-            raise KeyError(f"FakeProvider has no response for user message: {key!r}")
         if isinstance(response, str):
             response = FakeResponse(text=response)
         return ModelOutput(
@@ -77,6 +83,11 @@ class FakeProvider:
             cost_usd=0.0,
             tool_calls=response.tool_calls,
         )
+
+    def _lookup[V](self, table: Mapping[str, V], key: str) -> V | None:
+        if self._match == "exact":
+            return table.get(key)
+        return next((value for pattern, value in table.items() if pattern in key), None)
 
 
 def _last_user_content(messages: tuple[Message, ...]) -> str:
