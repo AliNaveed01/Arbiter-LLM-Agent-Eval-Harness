@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -6,6 +7,7 @@ import respx
 from typer.testing import CliRunner
 
 from agentgauge.cli import app
+from agentgauge.core import RunResult
 from agentgauge.storage import RunStore
 
 runner = CliRunner(env={"COLUMNS": "200"})
@@ -274,12 +276,14 @@ def test_runs_show_unknown_id_exits_1(tmp_path: Path) -> None:
 
 
 def test_runs_show_ambiguous_prefix_exits_1(tmp_path: Path) -> None:
-    suite = str(write(tmp_path, FAKE_SUITE))
-    for _ in range(40):  # enough runs that a one-character prefix is ambiguous
-        invoke(tmp_path, suite)
-    code, output = show(tmp_path, stored_id(tmp_path)[:1])
+    started = datetime(2026, 11, 3, 12, 0, tzinfo=UTC)
+    with RunStore(tmp_path / "runs.db") as store:
+        for run_id in ("abc111", "abc222"):
+            store.save_run(RunResult(run_id=run_id, suite_name="s", model="m", started_at=started))
+    code, output = show(tmp_path, "abc")
     assert code == 1
     assert "ambiguous" in output
+    assert show(tmp_path, "abc1")[0] == 0
 
 
 def test_runs_show_with_an_unusable_database_exits_2(tmp_path: Path) -> None:
