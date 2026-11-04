@@ -1,6 +1,14 @@
 import pytest
 
-from agentgauge.calibration.metrics import accuracy, cohens_kappa, confusion_matrix, per_class_stats
+from agentgauge.calibration.metrics import (
+    accuracy,
+    bootstrap_kappa_ci,
+    calibrate,
+    cohens_kappa,
+    confusion_matrix,
+    per_class_stats,
+)
+from agentgauge.judge import Scale
 
 BINARY = (0, 1)
 HUMAN = [1, 1, 0, 0, 1]
@@ -96,3 +104,73 @@ def test_binary_quadratic_equals_unweighted() -> None:
 def test_kappa_is_undefined_when_everyone_used_one_score() -> None:
     assert cohens_kappa([1, 1, 1], [1, 1, 1], BINARY) is None
     assert cohens_kappa([3, 3], [3, 3], (1, 2, 3), "quadratic") is None
+
+
+GOLDEN_LOW = 0.2857142857142858
+GOLDEN_HIGH = 0.8979591836734694
+MANY_HUMAN = [1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 1, 0, 1, 1, 0]
+MANY_JUDGE = [1, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 1, 1, 0, 1, 0, 0]
+
+
+def test_bootstrap_is_reproducible_for_a_seed() -> None:
+    first = bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY, seed=3)
+    assert first == bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY, seed=3)
+    assert first != bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY, seed=4)
+
+
+def test_bootstrap_interval_brackets_the_estimate_and_stays_in_range() -> None:
+    ci = bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY)
+    kappa = cohens_kappa(MANY_HUMAN, MANY_JUDGE, BINARY)
+    assert ci is not None
+    assert kappa is not None
+    low, high = ci
+    assert -1.0 <= low <= kappa <= high <= 1.0
+
+
+def test_bootstrap_golden_value() -> None:
+    # Pins the algorithm (resampling order, percentile rule) so changes are deliberate.
+    ci = bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY, resamples=200, seed=0)
+    assert ci == pytest.approx((GOLDEN_LOW, GOLDEN_HIGH))
+
+
+def test_narrower_confidence_gives_a_narrower_interval() -> None:
+    wide = bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY, confidence=0.99)
+    narrow = bootstrap_kappa_ci(MANY_HUMAN, MANY_JUDGE, BINARY, confidence=0.5)
+    assert wide is not None
+    assert narrow is not None
+    assert wide[1] - wide[0] > narrow[1] - narrow[0]
+
+
+def test_bootstrap_perfect_agreement_is_a_point() -> None:
+    assert bootstrap_kappa_ci([0, 1, 0, 1], [0, 1, 0, 1], BINARY) == (1.0, 1.0)
+
+
+def test_bootstrap_undefined_everywhere_is_none() -> None:
+    assert bootstrap_kappa_ci([1, 1, 1], [1, 1, 1], BINARY) is None
+
+
+@pytest.mark.parametrize("kwargs", [{"resamples": 0}, {"confidence": 1.0}, {"confidence": 0.0}])
+def test_bootstrap_rejects_bad_options(kwargs: dict[str, float]) -> None:
+    with pytest.raises(ValueError, match=r"resamples|confidence"):
+        bootstrap_kappa_ci(HUMAN, JUDGE, BINARY, **kwargs)  # type: ignore[arg-type]
+
+
+def test_calibrate_binary_report() -> None:
+    report = calibrate(HUMAN, JUDGE, Scale.model_validate("binary"))
+    assert (report.n, report.weighting, report.classes) == (5, "none", (0, 1))
+    assert report.accuracy == pytest.approx(0.8)
+    assert report.kappa == pytest.approx(0.32 / 0.52)
+    assert report.confusion == ((2, 0), (1, 2))
+    assert [c.label for c in report.per_class] == [0, 1]
+    assert report.kappa_ci is not None
+
+
+def test_calibrate_ordinal_uses_quadratic_weighting() -> None:
+    report = calibrate([1, 2, 3, 3], [1, 3, 3, 2], Scale.model_validate(3))
+    assert report.weighting == "quadratic"
+    assert report.kappa == pytest.approx(7 / 11)
+
+
+def test_calibrate_is_deterministic() -> None:
+    scale = Scale.model_validate("binary")
+    assert calibrate(MANY_HUMAN, MANY_JUDGE, scale) == calibrate(MANY_HUMAN, MANY_JUDGE, scale)
