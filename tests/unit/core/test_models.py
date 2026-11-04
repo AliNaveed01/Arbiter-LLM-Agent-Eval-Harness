@@ -250,3 +250,9 @@ def test_provider_config_round_trip_and_validation() -> None:
         ProviderConfig.model_validate({"type": "carrier-pigeon"})
     with pytest.raises(ValidationError):
         ProviderConfig.model_validate({"type": "fake", "api_key": "sk-secret"})
+
+
+def test_score_details_default_empty_and_round_trip_through_json() -> None:
+    assert Score(scorer="s", value=1.0, passed=True).details == {}
+    score = Score(scorer="s", value=1.0, passed=True, details={"judge_model": "m", "n": [1, 2]})
+    assert Score.model_validate_json(score.model_dump_json()) == score
