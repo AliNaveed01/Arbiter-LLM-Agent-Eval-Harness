@@ -6,6 +6,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from agentgauge.judge.prompts import template_problem
+
 
 class _Model(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -66,6 +68,13 @@ class Rubric(_Model):
         if any(not item.strip() for item in value):
             raise ValueError("criteria must not be blank")
         return value
+
+    @model_validator(mode="after")
+    def _template_is_usable(self) -> Rubric:
+        problem = template_problem(self.prompt_version, self.template)
+        if problem is not None:
+            raise ValueError(problem)
+        return self
 
     @model_validator(mode="after")
     def _pass_at_on_scale(self) -> Rubric:
