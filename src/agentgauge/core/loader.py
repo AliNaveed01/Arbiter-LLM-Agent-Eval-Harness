@@ -8,18 +8,11 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from agentgauge.core.models import Suite, TestCase
-from agentgauge.core.yamlio import YamlProblem, describe, line_at, parse_yaml
+from agentgauge.core.yamlio import FileLoadError, YamlProblem, describe, line_at, parse_yaml
 
 
-class SuiteLoadError(Exception):
+class SuiteLoadError(FileLoadError):
     """Raised when a suite file cannot be read or is invalid."""
-
-    def __init__(self, path: Path, message: str, line: int | None = None) -> None:
-        self.path = path
-        self.line = line
-        self.message = message
-        location = f"{path}:{line}" if line is not None else str(path)
-        super().__init__(f"{location}: {message}")
 
 
 def load_suite(path: str | Path) -> Suite:
