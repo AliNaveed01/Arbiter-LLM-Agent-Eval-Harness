@@ -80,6 +80,17 @@ Every scorer runs on every case. Suites can also be JSONL, one case per line (`{
 | `regex` | the output matches `pattern`, or `expected` if no pattern is given (params: `pattern`, `ignore_case`, `full`) |
 | `numeric_tolerance` | the first number in the output is within `abs_tol` or `rel_tol` of the number in `expected` |
 | `json_schema` | the output is JSON that satisfies `schema` (a documented subset of JSON Schema) |
+| `llm_judge` | a judge model scores the output against a rubric (params: `rubric`, `judge`, `cache`); see below |
+
+## Judging with a model, and checking the judge
+
+`llm_judge` asks a model to grade each output against a rubric. A judge is only worth trusting once it has been checked against human labels, so agentgauge ships the check:
+
+```bash
+uv run agentgauge calibrate examples/judge/suite.yaml --labels examples/judge/labels.yaml
+```
+
+It reports accuracy, Cohen's kappa with a bootstrap interval, a confusion matrix and per-class precision and recall, and warns when kappa is below 0.6. The example uses a scripted judge, so it runs offline. [docs/calibration.md](docs/calibration.md) explains how to read the report.
 
 ## Running against a real model
 

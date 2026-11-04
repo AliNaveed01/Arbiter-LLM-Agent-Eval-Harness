@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from agentgauge.cli import app
 from agentgauge.core import load_suite
-from agentgauge.scorers import create_scorer
+from agentgauge.scorers import available_scorers, create_scorer
 from agentgauge.storage import RunStore
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -45,11 +45,14 @@ def test_every_scorer_in_the_readme_table_is_registered() -> None:
         "contains",
         "exact_match",
         "json_schema",
+        "llm_judge",
         "numeric_tolerance",
         "regex",
     ]
+    needs_params = {"json_schema", "llm_judge"}
+    assert needs_params <= set(available_scorers())
     for name in names:
-        if name != "json_schema":
+        if name not in needs_params:
             create_scorer(name)
 
 
