@@ -121,7 +121,8 @@ class ProviderConfig(_Model):
     """Which model a suite runs against, so ``agentgauge run suite.yaml`` is self-contained.
 
     ``type`` is ``openai_compat`` (any OpenAI-compatible endpoint) or ``fake``
-    (canned ``responses``, for examples and tests). ``api_key_env`` names the
+    (canned ``responses``, for examples and tests; ``match`` says whether a
+    response key must equal the last user message or merely appear in it). ``api_key_env`` names the
     environment variable holding the API key; keys are never stored in suites.
     """
 
@@ -131,6 +132,7 @@ class ProviderConfig(_Model):
     api_key_env: str | None = None
     params: GenerationParams | None = None
     responses: dict[str, str] = Field(default_factory=lambda: {})
+    match: Literal["exact", "contains"] = "exact"
 
 
 class Suite(_Model):

@@ -128,3 +128,30 @@ def test_prompt_tokens_count_assistant_tool_calls() -> None:
     out = asyncio.run(FakeProvider({"weather now": "sunny"}).complete(request))
     # "weather now" (2) + call name (1) + arguments (3) + "sunny" (1)
     assert out.prompt_tokens == 7
+
+
+def test_contains_matching_uses_the_first_matching_key() -> None:
+    provider = FakeProvider(
+        {"Paris": "right", "answer": "generic"}, match="contains", default="none"
+    )
+
+    def ask(text: str) -> str:
+        request = CompletionRequest(messages=(Message(role="user", content=text),))
+        return asyncio.run(provider.complete(request)).text
+
+    assert ask("The answer is Paris, I think") == "right"
+    assert ask("just an answer") == "generic"
+    assert ask("nothing relevant") == "none"
+
+
+def test_contains_matching_applies_to_errors_and_exact_stays_the_default() -> None:
+    boom = RuntimeError("boom")
+    provider = FakeProvider({"x": "ok"}, errors={"bad": boom}, match="contains")
+    bad_day = CompletionRequest(messages=(Message(role="user", content="a bad day"),))
+    with pytest.raises(RuntimeError, match="boom"):
+        asyncio.run(provider.complete(bad_day))
+    exact = FakeProvider({"x": "ok"})
+    with pytest.raises(KeyError):
+        asyncio.run(
+            exact.complete(CompletionRequest(messages=(Message(role="user", content="xx"),)))
+        )
