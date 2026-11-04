@@ -13,7 +13,7 @@ from agentgauge.core.models import (
     ScorerSpec,
     TestCase,
 )
-from agentgauge.judge import Rubric, render_prompt
+from agentgauge.judge import JudgeCache, Rubric, cache_key, render_prompt
 from agentgauge.scorers import JudgeError, LLMJudge, ScorerConfigError, create_scorer
 
 RUBRIC: dict[str, Any] = {"name": "quality", "criteria": ["is correct"], "scale": 5}
@@ -44,7 +44,7 @@ class Scripted:
 
 def _judge(replies: Sequence[str], **kwargs: Any) -> tuple[LLMJudge, Scripted]:
     provider = Scripted(replies)
-    return LLMJudge(RUBRIC, provider=provider, **kwargs), provider
+    return LLMJudge(RUBRIC, provider=provider, **{"cache": False, **kwargs}), provider
 
 
 def test_scores_a_valid_verdict_and_records_provenance() -> None:
@@ -59,6 +59,7 @@ def test_scores_a_valid_verdict_and_records_provenance() -> None:
         "scale": {"kind": "ordinal", "levels": 5},
         "raw_output": '{"score": 4, "reasoning": "correct"}',
         "attempts": 1,
+        "cached": False,
     }
     assert len(provider.requests) == 1
     assert provider.requests[0].messages == render_prompt(Rubric.model_validate(RUBRIC), CASE, "4")
@@ -102,7 +103,7 @@ def test_two_malformed_replies_raise_with_the_raw_reply() -> None:
 
 def test_binary_rubric_value_is_zero_or_one() -> None:
     provider = Scripted(['{"score": 0, "reasoning": "wrong"}'])
-    judge = LLMJudge({**RUBRIC, "scale": "binary"}, provider=provider)
+    judge = LLMJudge({**RUBRIC, "scale": "binary"}, provider=provider, cache=False)
     score = asyncio.run(judge.score(CASE, OUTPUT))
     assert (score.value, score.passed) == (0.0, False)
 
@@ -119,6 +120,7 @@ def test_registry_builds_a_judge_from_yaml_style_params() -> None:
         name="llm_judge",
         params={
             "rubric": RUBRIC,
+            "cache": False,
             "judge": {
                 "type": "fake",
                 "model": "fake-judge",
@@ -133,13 +135,13 @@ def test_registry_builds_a_judge_from_yaml_style_params() -> None:
 def test_rubric_may_be_a_path(tmp_path: Path) -> None:
     path = tmp_path / "rubric.yaml"
     path.write_text("name: q\ncriteria: [c]\nscale: binary\n", encoding="utf-8")
-    judge = LLMJudge(str(path), provider=Scripted([]))
+    judge = LLMJudge(str(path), provider=Scripted([]), cache=False)
     assert judge is not None
 
 
 def test_a_rubric_instance_and_a_provider_config_are_accepted() -> None:
     config = ProviderConfig(type="fake", model="j", responses={})
-    judge = LLMJudge(Rubric.model_validate(RUBRIC), config)
+    judge = LLMJudge(Rubric.model_validate(RUBRIC), config, cache=False)
     assert asyncio.run(judge.aclose()) is None
 
 
@@ -156,3 +158,112 @@ def test_a_rubric_instance_and_a_provider_config_are_accepted() -> None:
 def test_configuration_errors(kwargs: dict[str, Any], message: str) -> None:
     with pytest.raises(ScorerConfigError, match=message):
         LLMJudge(**kwargs)
+
+
+GOOD = '{"score": 4, "reasoning": "correct"}'
+
+
+def test_second_run_is_served_from_the_cache_with_the_same_score() -> None:
+    cache = JudgeCache()
+    first, provider = _judge([GOOD], cache=cache)
+    one = asyncio.run(first.score(CASE, OUTPUT))
+    second = LLMJudge(RUBRIC, provider=Scripted([]), cache=cache)  # would fail if it called
+    two = asyncio.run(second.score(CASE, OUTPUT))
+    assert len(provider.requests) == 1
+    assert (two.value, two.passed, two.reason) == (one.value, one.passed, one.reason)
+    assert two.details["raw_output"] == one.details["raw_output"]
+    assert (one.details["cached"], two.details["cached"]) == (False, True)
+    assert two.details["attempts"] == 0
+
+
+def test_a_retried_reply_is_cached_under_the_original_prompt() -> None:
+    cache = JudgeCache()
+    first, _ = _judge(["garbage", GOOD], cache=cache)
+    asyncio.run(first.score(CASE, OUTPUT))
+    second = LLMJudge(RUBRIC, provider=Scripted([]), cache=cache)
+    assert asyncio.run(second.score(CASE, OUTPUT)).value == 4.0
+
+
+def test_a_failed_judgement_is_not_cached() -> None:
+    cache = JudgeCache()
+    judge, _ = _judge(["no", "still no"], cache=cache)
+    with pytest.raises(JudgeError):
+        asyncio.run(judge.score(CASE, OUTPUT))
+    assert len(cache) == 0
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"params": GenerationParams(temperature=0.5)},
+        {"rubric": {**RUBRIC, "prompt_version": "v1", "criteria": ["is concise"]}},
+    ],
+)
+def test_changing_params_or_the_rubric_misses_the_cache(change: dict[str, Any]) -> None:
+    cache = JudgeCache()
+    asyncio.run(_judge([GOOD], cache=cache)[0].score(CASE, OUTPUT))
+    provider = Scripted([GOOD])
+    kwargs: dict[str, Any] = {"rubric": RUBRIC, "provider": provider, "cache": cache, **change}
+    asyncio.run(LLMJudge(**kwargs).score(CASE, OUTPUT))
+    assert len(provider.requests) == 1
+    assert len(cache) == 2
+
+
+def test_a_different_judge_model_misses_the_cache() -> None:
+    cache = JudgeCache()
+    asyncio.run(_judge([GOOD], cache=cache)[0].score(CASE, OUTPUT))
+    other = Scripted([GOOD], name="another-judge")
+    asyncio.run(LLMJudge(RUBRIC, provider=other, cache=cache).score(CASE, OUTPUT))
+    assert len(other.requests) == 1
+
+
+def test_an_unusable_cached_reply_is_treated_as_a_miss() -> None:
+    cache = JudgeCache()
+    judge, provider = _judge([GOOD], cache=cache)
+    key = cache_key(
+        "judge-model",
+        GenerationParams(temperature=0.0),
+        "v1",
+        render_prompt(Rubric.model_validate(RUBRIC), CASE, "4"),
+    )
+    cache.put(key, "corrupt")
+    assert asyncio.run(judge.score(CASE, OUTPUT)).value == 4.0
+    assert len(provider.requests) == 1
+
+
+def test_cache_false_always_calls_the_judge() -> None:
+    judge, provider = _judge([GOOD, GOOD])
+    asyncio.run(judge.score(CASE, OUTPUT))
+    asyncio.run(judge.score(CASE, OUTPUT))
+    assert len(provider.requests) == 2
+
+
+def test_cache_path_is_opened_and_closed_by_the_scorer(tmp_path: Path) -> None:
+    path = tmp_path / "judge.db"
+    judge = LLMJudge(RUBRIC, provider=Scripted([GOOD]), cache=str(path))
+    asyncio.run(judge.score(CASE, OUTPUT))
+    asyncio.run(judge.aclose())
+    with JudgeCache(path) as cache:
+        assert len(cache) == 1
+
+
+def test_a_shared_cache_is_not_closed_by_the_scorer() -> None:
+    cache = JudgeCache()
+    judge, _ = _judge([], cache=cache)
+    asyncio.run(judge.aclose())
+    assert len(cache) == 0  # still open
+
+
+def test_default_cache_lives_under_dot_agentgauge(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    judge = LLMJudge(RUBRIC, provider=Scripted([GOOD]))
+    asyncio.run(judge.score(CASE, OUTPUT))
+    asyncio.run(judge.aclose())
+    assert (tmp_path / ".agentgauge" / "judge-cache.db").exists()
+
+
+def test_unopenable_cache_is_a_configuration_error(tmp_path: Path) -> None:
+    with pytest.raises(ScorerConfigError, match="cache"):
+        LLMJudge(RUBRIC, provider=Scripted([]), cache=tmp_path)
