@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 
 from agentgauge.judge.prompts import template_problem
 
@@ -76,11 +83,13 @@ class Rubric(_Model):
             raise ValueError(problem)
         return self
 
-    @model_validator(mode="after")
-    def _pass_at_on_scale(self) -> Rubric:
-        if self.pass_at is not None and self.pass_at not in self.scale.values:
-            raise ValueError(f"pass_at must be one of {list(self.scale.values)}")
-        return self
+    @field_validator("pass_at")
+    @classmethod
+    def _pass_at_on_scale(cls, value: int | None, info: ValidationInfo) -> int | None:
+        scale = info.data.get("scale")
+        if value is not None and isinstance(scale, Scale) and value not in scale.values:
+            raise ValueError(f"must be one of {list(scale.values)}")
+        return value
 
     @property
     def threshold(self) -> int:

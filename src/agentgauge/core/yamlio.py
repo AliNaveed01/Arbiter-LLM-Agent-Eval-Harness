@@ -2,10 +2,22 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, cast
 
 import yaml
 from pydantic import ValidationError
+
+
+class FileLoadError(Exception):
+    """A file could not be read or is invalid; the message starts with ``path:line``."""
+
+    def __init__(self, path: Path, message: str, line: int | None = None) -> None:
+        self.path = path
+        self.line = line
+        self.message = message
+        location = f"{path}:{line}" if line is not None else str(path)
+        super().__init__(f"{location}: {message}")
 
 
 class YamlProblem(Exception):
