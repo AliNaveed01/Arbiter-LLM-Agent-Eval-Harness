@@ -180,12 +180,18 @@ class ModelOutput(_Model):
 
 
 class Score(_Model):
-    """One scorer's verdict on one output."""
+    """One scorer's verdict on one output.
+
+    ``details`` is scorer-specific provenance (for the LLM judge: the judge
+    model, prompt version and raw output). It is stored with the run but never
+    used to decide pass or fail.
+    """
 
     scorer: str
     value: float
     passed: bool
     reason: str | None = None
+    details: dict[str, Any] = Field(default_factory=lambda: {})
 
 
 class CaseResult(_Model):

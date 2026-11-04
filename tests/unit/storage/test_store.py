@@ -286,3 +286,16 @@ def test_connection_is_closed_on_sqlite_errors_while_opening(
     with pytest.raises(StorageError, match="disk I/O error"):
         RunStore(tmp_path / "runs.db")
     assert [spy.closed for spy in spies] == [True]
+
+
+def test_score_details_round_trip_through_the_store(store: RunStore) -> None:
+    score = Score(scorer="llm_judge", value=4.0, passed=True, details={"raw_output": '{"a": 1}'})
+    run = RunResult(
+        run_id="d1",
+        suite_name="s",
+        model="m",
+        started_at=datetime(2026, 1, 1, tzinfo=UTC),
+        results=(CaseResult(case_id="c", scores=(score,)),),
+    )
+    store.save_run(run)
+    assert store.get_run("d1").results[0].scores[0].details == {"raw_output": '{"a": 1}'}
