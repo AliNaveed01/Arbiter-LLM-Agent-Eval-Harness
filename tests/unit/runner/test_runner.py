@@ -276,3 +276,27 @@ def test_suites_without_tools_send_none() -> None:
     provider = answers()
     asyncio.run(run_suite(make_suite(1), provider))
     assert provider.calls[0].tools == ()
+
+
+def test_score_output_keeps_good_scores_and_reports_failing_scorers() -> None:
+    from agentgauge.runner import score_output
+    from agentgauge.scorers import create_scorer
+
+    register_scorer("boom")(Boom)
+    try:
+        scorers = [create_scorer("exact_match"), create_scorer("boom")]
+        case = TestCase(id="c", input="q", expected="a")
+        scores, error = asyncio.run(
+            score_output(case, ModelOutput(text="a", latency_ms=0), scorers)
+        )
+    finally:
+        unregister_scorer("boom")
+    assert [s.scorer for s in scores] == ["exact_match"]
+    assert error == "scorer 'boom' failed: RuntimeError: scorer exploded"
+
+
+def test_score_output_without_scorers_is_empty_and_clean() -> None:
+    from agentgauge.runner import score_output
+
+    case = TestCase(id="c", input="q")
+    assert asyncio.run(score_output(case, ModelOutput(text="a", latency_ms=0), [])) == ((), None)

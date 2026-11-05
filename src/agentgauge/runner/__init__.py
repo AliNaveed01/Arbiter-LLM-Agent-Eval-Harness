@@ -1,5 +1,5 @@
 """Suite execution."""
 
-from agentgauge.runner.runner import run_suite
+from agentgauge.runner.runner import close_scorers, run_suite, score_output
 
-__all__ = ["run_suite"]
+__all__ = ["close_scorers", "run_suite", "score_output"]

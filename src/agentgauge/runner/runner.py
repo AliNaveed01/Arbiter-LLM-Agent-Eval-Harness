@@ -13,6 +13,7 @@ from agentgauge.core.models import (
     CaseResult,
     CompletionRequest,
     GenerationParams,
+    ModelOutput,
     RunResult,
     Score,
     Suite,
@@ -58,7 +59,7 @@ async def run_suite(
             for index, case in enumerate(suite.cases):
                 group.start_soon(worker, index, case)
     finally:
-        await _close_scorers(scorers)
+        await close_scorers(scorers)
     results = [result for result in slots if result is not None]
     return RunResult(
         run_id=uuid.uuid4().hex,
@@ -97,6 +98,25 @@ async def _run_case(
             case_id=case.id, error=_describe(exc), latency_ms=(clock() - start) * 1000
         )
     latency_ms = (clock() - start) * 1000
+    scores, error = await score_output(case, output, scorers)
+    return CaseResult(
+        case_id=case.id,
+        output=output,
+        scores=scores,
+        error=error,
+        latency_ms=latency_ms,
+        cost_usd=output.cost_usd,
+    )
+
+
+async def score_output(
+    case: TestCase, output: ModelOutput, scorers: Sequence[Scorer]
+) -> tuple[tuple[Score, ...], str | None]:
+    """Run every scorer on one output.
+
+    A scorer that raises does not stop the others: the scores that succeeded are kept and the
+    failures are joined into one error message (``None`` when every scorer ran).
+    """
     scores: list[Score] = []
     errors: list[str] = []
     for scorer in scorers:
@@ -104,17 +124,10 @@ async def _run_case(
             scores.append(await scorer.score(case, output))
         except Exception as exc:  # a broken scorer fails the case, not the run
             errors.append(f"scorer {scorer.name!r} failed: {_describe(exc)}")
-    return CaseResult(
-        case_id=case.id,
-        output=output,
-        scores=tuple(scores),
-        error="; ".join(errors) or None,
-        latency_ms=latency_ms,
-        cost_usd=output.cost_usd,
-    )
+    return tuple(scores), "; ".join(errors) or None
 
 
-async def _close_scorers(scorers: Sequence[Scorer]) -> None:
+async def close_scorers(scorers: Sequence[Scorer]) -> None:
     """Release resources held by scorers (such as a judge's HTTP client)."""
     for scorer in scorers:
         close = getattr(scorer, "aclose", None)
