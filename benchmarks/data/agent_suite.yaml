@@ -1,0 +1,74 @@
+# Single-step tool use: given three tools, does the model call the right one with the right
+# arguments, and does it refrain from calling a tool when none is needed?
+# The provider is supplied by benchmarks/run_benchmark.py.
+name: tool-use
+description: Twelve prompts, nine that need one specific tool call and three that need none.
+
+tools:
+  - name: get_weather
+    description: Get the current weather for a city.
+    parameters:
+      type: object
+      properties:
+        city: {type: string, description: The city name}
+      required: [city]
+  - name: convert_currency
+    description: Convert an amount of money from one currency to another.
+    parameters:
+      type: object
+      properties:
+        amount: {type: number}
+        from: {type: string, description: Source currency code, e.g. USD}
+        to: {type: string, description: Target currency code, e.g. EUR}
+      required: [amount, from, to]
+  - name: set_timer
+    description: Start a countdown timer.
+    parameters:
+      type: object
+      properties:
+        minutes: {type: integer, description: Length of the timer in minutes}
+      required: [minutes]
+
+scorers:
+  - tool_call
+
+cases:
+  - id: weather-paris
+    input: "What is the weather in Paris right now?"
+    metadata: {expected_tool_call: {name: get_weather, arguments: {city: Paris}}}
+  - id: weather-tokyo
+    input: "Is it raining in Tokyo at the moment?"
+    metadata: {expected_tool_call: {name: get_weather, arguments: {city: Tokyo}}}
+  - id: weather-lima
+    input: "Tell me the current conditions in Lima."
+    metadata: {expected_tool_call: {name: get_weather, arguments: {city: Lima}}}
+  - id: currency-usd-eur
+    input: "Convert 100 US dollars to euros."
+    metadata:
+      expected_tool_call: {name: convert_currency, arguments: {amount: 100, from: USD, to: EUR}}
+  - id: currency-gbp-jpy
+    input: "How much is 250 GBP in JPY?"
+    metadata:
+      expected_tool_call: {name: convert_currency, arguments: {amount: 250, from: GBP, to: JPY}}
+  - id: currency-cad-usd
+    input: "I have 75 Canadian dollars; what is that in USD?"
+    metadata:
+      expected_tool_call: {name: convert_currency, arguments: {amount: 75, from: CAD, to: USD}}
+  - id: timer-ten
+    input: "Set a timer for 10 minutes."
+    metadata: {expected_tool_call: {name: set_timer, arguments: {minutes: 10}}}
+  - id: timer-forty-five
+    input: "Wake me in 45 minutes, please start a countdown."
+    metadata: {expected_tool_call: {name: set_timer, arguments: {minutes: 45}}}
+  - id: timer-two
+    input: "Start a 2 minute timer for my tea."
+    metadata: {expected_tool_call: {name: set_timer, arguments: {minutes: 2}}}
+  - id: no-tool-capital
+    input: "What is the capital of France?"
+    metadata: {expected_tool_call: null}
+  - id: no-tool-arithmetic
+    input: "What is 12 times 12?"
+    metadata: {expected_tool_call: null}
+  - id: no-tool-greeting
+    input: "Hello! How are you today?"
+    metadata: {expected_tool_call: null}
