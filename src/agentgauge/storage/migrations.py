@@ -32,7 +32,11 @@ CREATE TABLE case_results (
 CREATE INDEX idx_runs_started_at ON runs (started_at);
 """
 
-MIGRATIONS: tuple[Migration, ...] = ((1, _INITIAL_SCHEMA),)
+_ADD_TRAJECTORY = """
+ALTER TABLE case_results ADD COLUMN trajectory_json TEXT;
+"""
+
+MIGRATIONS: tuple[Migration, ...] = ((1, _INITIAL_SCHEMA), (2, _ADD_TRAJECTORY))
 
 
 class StorageError(Exception):
