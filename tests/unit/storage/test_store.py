@@ -4,9 +4,17 @@ from pathlib import Path
 
 import pytest
 
-from agentgauge.core import CaseResult, ModelOutput, RunResult, Score, ToolCall
+from agentgauge.core import (
+    CaseResult,
+    Message,
+    ModelOutput,
+    RunResult,
+    Score,
+    ToolCall,
+    Trajectory,
+)
 from agentgauge.storage import RunNotFoundError, RunStore, StorageError
-from agentgauge.storage.migrations import schema_version
+from agentgauge.storage.migrations import MIGRATIONS, migrate, schema_version
 
 T0 = datetime(2026, 11, 3, 12, 0, tzinfo=UTC)
 
@@ -299,3 +307,80 @@ def test_score_details_round_trip_through_the_store(store: RunStore) -> None:
     )
     store.save_run(run)
     assert store.get_run("d1").results[0].scores[0].details == {"raw_output": '{"a": 1}'}
+
+
+def _agent_output() -> ModelOutput:
+    call = ToolCall(id="1", name="search", arguments='{"q": "cats"}')
+    return ModelOutput(
+        text="found",
+        latency_ms=12.0,
+        trajectory=Trajectory(
+            messages=(
+                Message(role="assistant", content="", tool_calls=(call,)),
+                Message(role="tool", content="3 results", tool_call_id="1"),
+                Message(role="assistant", content="found"),
+            ),
+            stop_reason="final",
+        ),
+    )
+
+
+def test_trajectories_round_trip_and_live_in_their_own_column(tmp_path: Path) -> None:
+    path = tmp_path / "runs.db"
+    output = _agent_output()
+    run = RunResult(
+        run_id="t1",
+        suite_name="s",
+        model="m",
+        started_at=datetime(2026, 1, 1, tzinfo=UTC),
+        results=(
+            CaseResult(case_id="agent", output=output),
+            CaseResult(case_id="plain", output=ModelOutput(text="x", latency_ms=1.0)),
+            CaseResult(case_id="failed", error="boom"),
+        ),
+    )
+    with RunStore(path) as store:
+        store.save_run(run)
+        assert store.get_run("t1") == run
+    conn = sqlite3.connect(path)
+    rows = {
+        case_id: (output_json, trajectory_json)
+        for case_id, output_json, trajectory_json in conn.execute(
+            "SELECT case_id, output_json, trajectory_json FROM case_results"
+        )
+    }
+    assert "trajectory" not in rows["agent"][0] and rows["agent"][1] is not None
+    assert rows["plain"][1] is None and rows["failed"] == (None, None)
+
+
+def test_a_database_created_before_migration_two_still_opens(tmp_path: Path) -> None:
+    path = tmp_path / "old.db"
+    conn = sqlite3.connect(path)
+    migrate(conn, MIGRATIONS[:1])
+    conn.execute(
+        "INSERT INTO runs VALUES ('old1', 's', 'm', '2026-01-01T00:00:00.000000+00:00', NULL)"
+    )
+    conn.execute(
+        "INSERT INTO case_results (run_id, position, case_id, passed, error, latency_ms, "
+        "cost_usd, output_json, scores_json) VALUES "
+        "('old1', 0, 'c', 1, NULL, 1.0, NULL, "
+        '\'{"text": "hi", "latency_ms": 1.0}\', \'[]\')'
+    )
+    conn.commit()
+    assert schema_version(conn) == 1
+    conn.close()
+
+    with RunStore(path) as store:
+        old = store.get_run("old1")
+        assert old.results[0].output is not None and old.results[0].output.trajectory is None
+        store.save_run(
+            RunResult(
+                run_id="new1",
+                suite_name="s",
+                model="m",
+                started_at=datetime(2026, 1, 2, tzinfo=UTC),
+                results=(CaseResult(case_id="a", output=_agent_output()),),
+            )
+        )
+        assert store.get_run("new1").results[0].output == _agent_output()
+    assert schema_version(sqlite3.connect(path)) == 2

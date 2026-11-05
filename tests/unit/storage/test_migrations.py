@@ -82,6 +82,9 @@ def test_case_results_cascade_when_a_run_is_deleted(conn: sqlite3.Connection) ->
     migrate(conn)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("INSERT INTO runs VALUES ('r', 's', 'm', '2026-01-01T00:00:00+00:00', NULL)")
-    conn.execute("INSERT INTO case_results VALUES ('r', 0, 'c', 1, NULL, NULL, NULL, NULL, '[]')")
+    conn.execute(
+        "INSERT INTO case_results (run_id, position, case_id, passed, scores_json) "
+        "VALUES ('r', 0, 'c', 1, '[]')"
+    )
     conn.execute("DELETE FROM runs WHERE run_id = 'r'")
     assert conn.execute("SELECT COUNT(*) FROM case_results").fetchone()[0] == 0
