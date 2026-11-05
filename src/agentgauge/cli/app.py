@@ -213,6 +213,15 @@ def calibrate(
         str | None, typer.Option(help="Environment variable holding the API key.")
     ] = None,
     concurrency: Annotated[int, typer.Option(min=1, help="Maximum cases in flight at once.")] = 8,
+    fail_under: Annotated[
+        float | None,
+        typer.Option(
+            "--fail-under",
+            min=-1.0,
+            max=1.0,
+            help="Exit 1 if kappa is below this value, or undefined.",
+        ),
+    ] = None,
 ) -> None:
     """Measure how well SUITE's judge agrees with human labels.
 
@@ -224,7 +233,8 @@ def calibrate(
 
     Exits 2 on configuration problems (bad suite or labels, labels for unknown
     cases or off the scale, no such scorer) and 1 when no labelled case could be
-    judged. A low kappa is a warning, not a failure.
+    judged. A low kappa is a warning, not a failure, unless --fail-under is given: then a kappa
+    below that value (or an undefined one) exits 1.
     """
     try:
         suite = load_suite(suite_path)
@@ -286,6 +296,9 @@ def calibrate(
         skipped=skipped,
         unlabelled=len(suite.cases) - len(labels),
     )
+    if fail_under is not None and (report.kappa is None or report.kappa < fail_under):
+        found = "undefined" if report.kappa is None else f"{report.kappa:.2f}"
+        _fail(f"kappa {found} is below --fail-under {fail_under}", code=1)
 
 
 @app.command("import-otel")

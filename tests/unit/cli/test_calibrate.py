@@ -186,3 +186,34 @@ def test_ordinal_rubric_reports_quadratic_weighting(tmp_path: Path) -> None:
     code, out = calibrate(suite_path, labels)
     assert code == 0, out
     assert "quadratic weighting" in out
+
+
+def test_fail_under_gates_on_kappa(tmp_path: Path) -> None:
+    good = {case: reply(score) for case, score in HUMAN.items()}
+    suite, labels = make_suite(tmp_path, good), make_labels(tmp_path, HUMAN)
+    code, out = calibrate(suite, labels, "--fail-under", "0.6")
+    assert code == 0 and "kappa (none weighting) 1.00" in out
+
+    bad = {case: reply(1 - score) for case, score in HUMAN.items()}
+    code, out = calibrate(make_suite(tmp_path, bad), labels, "--fail-under", "0.6")
+    assert code == 1
+    assert "kappa -1.00 is below --fail-under 0.6" in out
+    assert "Warning" in out  # the report is still printed
+
+    code, _ = calibrate(make_suite(tmp_path, bad), labels)
+    assert code == 0  # without the option a low kappa only warns
+
+
+def test_fail_under_treats_undefined_kappa_as_a_failure(tmp_path: Path) -> None:
+    same = {case: reply(1) for case in HUMAN}
+    ones = make_labels(tmp_path, {case: 1 for case in HUMAN})
+    code, out = calibrate(make_suite(tmp_path, same), ones, "--fail-under", "0.0")
+    assert code == 1 and "kappa undefined is below --fail-under" in out
+
+
+def test_fail_under_must_be_a_valid_kappa(tmp_path: Path) -> None:
+    verdicts = {case: reply(score) for case, score in HUMAN.items()}
+    code, _ = calibrate(
+        make_suite(tmp_path, verdicts), make_labels(tmp_path, HUMAN), "--fail-under", "2"
+    )
+    assert code == 2
