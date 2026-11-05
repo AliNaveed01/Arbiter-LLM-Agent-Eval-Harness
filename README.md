@@ -81,6 +81,9 @@ Every scorer runs on every case. Suites can also be JSONL, one case per line (`{
 | `numeric_tolerance` | the first number in the output is within `abs_tol` or `rel_tol` of the number in `expected` |
 | `json_schema` | the output is JSON that satisfies `schema` (a documented subset of JSON Schema) |
 | `llm_judge` | a judge model scores the output against a rubric (params: `rubric`, `judge`, `cache`); see below |
+| `tool_call` | the model made exactly the expected tool call (arguments compared case-insensitively), or none when none is expected |
+| `trajectory_match` | an agent's tool-call sequence matches `expected_trajectory` (`exact`, `in_order` or `any_order`); see [docs/trajectories.md](docs/trajectories.md) |
+| `trajectory_budget` | an agent finished within `max_calls` tool calls |
 
 ## Judging with a model, and checking the judge
 
@@ -91,6 +94,18 @@ uv run agentgauge calibrate examples/judge/suite.yaml --labels examples/judge/la
 ```
 
 It reports accuracy, Cohen's kappa with a bootstrap interval, a confusion matrix and per-class precision and recall, and warns when kappa is below 0.6. The example uses a scripted judge, so it runs offline. [docs/calibration.md](docs/calibration.md) explains how to read the report.
+
+## Agents and traces
+
+With an `agent` block a suite runs each case as a multi-step tool loop against scripted tools, and the trajectory scorers judge the route, not just the answer. `agentgauge import-otel` scores traces recorded elsewhere, from OpenTelemetry GenAI spans:
+
+```bash
+uv run agentgauge run examples/agent/suite.yaml
+uv run agentgauge runs show <run id> --trajectory
+uv run agentgauge import-otel examples/otel/traces.json --suite examples/otel/suite.yaml
+```
+
+See [docs/trajectories.md](docs/trajectories.md).
 
 ## Running against a real model
 
