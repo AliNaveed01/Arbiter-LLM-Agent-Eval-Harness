@@ -1,0 +1,32 @@
+# Thirty question and answer pairs with a human verdict on whether the answer is factually correct
+# (1 = correct, 0 = wrong). The answers are fixed text; the model being benchmarked is the judge.
+- {id: capital-france, question: "What is the capital of France?", answer: "Paris", label: 1}
+- {id: capital-australia, question: "What is the capital of Australia?", answer: "Sydney", label: 0}
+- {id: arithmetic-sum, question: "What is 17 + 25?", answer: "42", label: 1}
+- {id: arithmetic-product, question: "What is 12 times 12?", answer: "124", label: 0}
+- {id: gold-symbol, question: "What is the chemical symbol for gold?", answer: "Au", label: 1}
+- {id: silver-symbol, question: "What is the chemical symbol for silver?", answer: "Si", label: 0}
+- {id: largest-planet, question: "Which is the largest planet in the solar system?", answer: "Jupiter", label: 1}
+- {id: red-planet, question: "Which planet is known as the Red Planet?", answer: "Venus", label: 0}
+- {id: hamlet, question: "Who wrote Hamlet?", answer: "William Shakespeare", label: 1}
+- {id: origin-species, question: "Who wrote On the Origin of Species?", answer: "Isaac Newton", label: 0}
+- {id: water-boil, question: "At sea level, at what temperature in Celsius does water boil?", answer: "100 degrees Celsius", label: 1}
+- {id: water-freeze, question: "At sea level, at what temperature in Celsius does water freeze?", answer: "32 degrees Celsius", label: 0}
+- {id: days-week, question: "How many days are there in a week?", answer: "Seven", label: 1}
+- {id: legs-spider, question: "How many legs does a spider have?", answer: "Six", label: 0}
+- {id: mona-lisa, question: "Who painted the Mona Lisa?", answer: "Leonardo da Vinci", label: 1}
+- {id: starry-night, question: "Who painted The Starry Night?", answer: "Claude Monet", label: 0}
+- {id: capital-japan, question: "What is the capital of Japan?", answer: "Tokyo", label: 1}
+- {id: capital-canada, question: "What is the capital of Canada?", answer: "Toronto", label: 0}
+- {id: sqrt-144, question: "What is the square root of 144?", answer: "12", label: 1}
+- {id: sqrt-81, question: "What is the square root of 81?", answer: "8", label: 0}
+- {id: continents, question: "How many continents are there?", answer: "Seven", label: 1}
+- {id: ocean-largest, question: "Which is the largest ocean?", answer: "The Atlantic Ocean", label: 0}
+- {id: sun-star, question: "Is the Sun a star or a planet?", answer: "A star", label: 1}
+- {id: moon-earth, question: "How many moons does Earth have?", answer: "Two", label: 0}
+- {id: h2o, question: "What is the chemical formula for water?", answer: "H2O", label: 1}
+- {id: co2, question: "What is the chemical formula for carbon dioxide?", answer: "CO3", label: 0}
+- {id: spain-capital, question: "What is the capital of Spain?", answer: "Madrid", label: 1}
+- {id: italy-capital, question: "What is the capital of Italy?", answer: "Milan", label: 0}
+- {id: light-faster, question: "Which is faster, light or sound?", answer: "Light", label: 1}
+- {id: tallest-animal, question: "What is the tallest land animal?", answer: "The elephant", label: 0}
