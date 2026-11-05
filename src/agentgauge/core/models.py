@@ -117,12 +117,28 @@ class ScorerSpec(_Model):
     params: dict[str, Any] = Field(default_factory=lambda: {})
 
 
+class FakeToolCall(_Model):
+    """A tool call a fake provider makes; ``arguments`` may be a mapping or a JSON string."""
+
+    name: str
+    arguments: dict[str, Any] | str = Field(default_factory=lambda: {})
+
+
+class FakeReply(_Model):
+    """A scripted fake-provider reply: text, tool calls, or both."""
+
+    text: str = ""
+    tool_calls: tuple[FakeToolCall, ...] = ()
+
+
 class ProviderConfig(_Model):
     """Which model a suite runs against, so ``agentgauge run suite.yaml`` is self-contained.
 
     ``type`` is ``openai_compat`` (any OpenAI-compatible endpoint) or ``fake``
     (canned ``responses``, for examples and tests; ``match`` says whether a
-    response key must equal the last user message or merely appear in it). ``api_key_env`` names the
+    response key must equal the last user message or merely appear in it). A fake
+    response is a string, a ``{text, tool_calls}`` reply, or a list of those: in an agent
+    run the list's n-th item answers the n-th step. ``api_key_env`` names the
     environment variable holding the API key; keys are never stored in suites.
     """
 
@@ -131,7 +147,9 @@ class ProviderConfig(_Model):
     base_url: str | None = None
     api_key_env: str | None = None
     params: GenerationParams | None = None
-    responses: dict[str, str] = Field(default_factory=lambda: {})
+    responses: dict[str, str | FakeReply | list[str | FakeReply]] = Field(
+        default_factory=lambda: {}
+    )
     match: Literal["exact", "contains"] = "exact"
 
 

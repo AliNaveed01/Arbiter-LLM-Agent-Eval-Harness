@@ -103,3 +103,36 @@ def test_fake_provider_match_mode_comes_from_the_config() -> None:
     provider = build_provider(config)
     request = CompletionRequest(messages=(Message(role="user", content="a cat sat"),))
     assert asyncio.run(provider.complete(request)).text == "meow"
+
+
+def test_fake_config_scripts_tool_calls_with_mapping_or_string_arguments() -> None:
+    config = ProviderConfig.model_validate(
+        {
+            "type": "fake",
+            "responses": {
+                "q": [
+                    {"tool_calls": [{"name": "search", "arguments": {"q": "cats"}}]},
+                    {"tool_calls": [{"name": "open", "arguments": '{"id": 7}'}, {"name": "ping"}]},
+                    {"text": "found it"},
+                    "plain string",
+                ]
+            },
+        }
+    )
+    provider = build_provider(config)
+    user = Message(role="user", content="q")
+    assistant = Message(role="assistant", content="")
+
+    def step(n: int) -> tuple[Message, ...]:
+        return (user, *([assistant] * n))
+
+    first = asyncio.run(provider.complete(CompletionRequest(messages=step(0))))
+    second = asyncio.run(provider.complete(CompletionRequest(messages=step(1))))
+    third = asyncio.run(provider.complete(CompletionRequest(messages=step(2))))
+    fourth = asyncio.run(provider.complete(CompletionRequest(messages=step(3))))
+    assert [(c.name, c.arguments) for c in first.tool_calls] == [("search", '{"q": "cats"}')]
+    assert [(c.id, c.name, c.arguments) for c in second.tool_calls] == [
+        ("call_1", "open", '{"id": 7}'),
+        ("call_2", "ping", "{}"),
+    ]
+    assert (third.text, fourth.text) == ("found it", "plain string")
