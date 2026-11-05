@@ -17,9 +17,9 @@ from agentgauge.core.models import (
     Score,
     Suite,
     TestCase,
-    ToolSpec,
 )
 from agentgauge.providers.base import Provider
+from agentgauge.runner.agent import run_agent
 from agentgauge.scorers.base import Scorer
 from agentgauge.scorers.registry import create_scorer
 
@@ -39,7 +39,8 @@ async def run_suite(
     flight at once. Scorers are created from ``suite.scorers`` before anything
     runs, so a bad scorer name or params raises ``ScorerConfigError``
     immediately. Results are returned in suite order regardless of completion
-    order. Scorers that define ``aclose`` are closed when the run ends.
+    order. When ``suite.agent`` is set each case runs as a multi-step tool loop (see
+    :func:`run_agent`). Scorers that define ``aclose`` are closed when the run ends.
     """
     if concurrency < 1:
         raise ValueError("concurrency must be at least 1")
@@ -50,7 +51,7 @@ async def run_suite(
 
     async def worker(index: int, case: TestCase) -> None:
         async with limiter:
-            slots[index] = await _run_case(case, provider, scorers, suite.tools, params, clock)
+            slots[index] = await _run_case(case, provider, scorers, suite, params, clock)
 
     try:
         async with anyio.create_task_group() as group:
@@ -73,14 +74,24 @@ async def _run_case(
     case: TestCase,
     provider: Provider,
     scorers: Sequence[Scorer],
-    tools: tuple[ToolSpec, ...],
+    suite: Suite,
     params: GenerationParams | None,
     clock: Callable[[], float],
 ) -> CaseResult:
-    request = CompletionRequest(messages=case.input, tools=tools, params=params)
     start = clock()
     try:
-        output = await provider.complete(request)
+        if suite.agent is not None:
+            output = await run_agent(
+                provider,
+                case,
+                suite.agent,
+                tools=suite.tools,
+                mocks=suite.tool_mocks,
+                params=params,
+            )
+        else:
+            request = CompletionRequest(messages=case.input, tools=suite.tools, params=params)
+            output = await provider.complete(request)
     except Exception as exc:  # one failing case must never kill the run
         return CaseResult(
             case_id=case.id, error=_describe(exc), latency_ms=(clock() - start) * 1000
