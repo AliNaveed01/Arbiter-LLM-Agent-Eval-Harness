@@ -6,22 +6,10 @@ import json
 from typing import Any
 
 from agentgauge.core.models import ModelOutput, Score, TestCase, ToolCall
+from agentgauge.scorers.arguments import same_arguments
 from agentgauge.scorers.registry import ScorerConfigError, register_scorer
 
 NAME = "tool_call"
-
-
-def _normalise(value: Any) -> Any:
-    """Compare strings ignoring case and edge whitespace; everything else exactly."""
-    if isinstance(value, str):
-        return value.strip().casefold()
-    if isinstance(value, list):
-        items: list[Any] = value  # pyright: ignore[reportUnknownVariableType]
-        return [_normalise(item) for item in items]
-    if isinstance(value, dict):
-        mapping: dict[str, Any] = value  # pyright: ignore[reportUnknownVariableType]
-        return {key: _normalise(item) for key, item in mapping.items()}
-    return value
 
 
 @register_scorer(NAME)
@@ -76,7 +64,7 @@ def _check_call(expected: dict[str, Any], calls: tuple[ToolCall, ...]) -> Score:
         reason = f"arguments are not a JSON object: {call.arguments!r}"
         return _result(False, reason, "malformed_arguments")
     wanted: Any = expected.get("arguments", {})
-    if _normalise(arguments) != _normalise(wanted):
+    if not same_arguments(arguments, wanted):
         return _result(False, f"arguments {arguments!r}, expected {wanted!r}", "wrong_arguments")
     return _result(True, None, "ok")
 
