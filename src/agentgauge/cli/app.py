@@ -21,6 +21,7 @@ from agentgauge.cli.render import (
 )
 from agentgauge.core import ProviderConfig, RunResult, Suite, SuiteLoadError, load_suite
 from agentgauge.judge import Scale
+from agentgauge.otel import OtelImportError, load_traces, score_imported
 from agentgauge.providers import ProviderConfigError, build_provider
 from agentgauge.runner import run_suite
 from agentgauge.scorers import ScorerConfigError
@@ -285,3 +286,44 @@ def calibrate(
         skipped=skipped,
         unlabelled=len(suite.cases) - len(labels),
     )
+
+
+@app.command("import-otel")
+def import_otel(
+    traces_path: Annotated[
+        Path, typer.Argument(metavar="TRACES", help="OTLP/JSON trace file (.json or .jsonl).")
+    ],
+    suite_path: Annotated[
+        Path, typer.Option("--suite", help="Suite whose cases and scorers apply to the traces.")
+    ],
+    db: DbOption = DEFAULT_DB,
+) -> None:
+    """Import OpenTelemetry GenAI traces as a run, scored with SUITE's scorers.
+
+    Each trace becomes one case: the tool calls come from its execute_tool spans, and the
+    case is named by the agentgauge.case_id attribute on any span. The result is stored like
+    a run, so `runs show --trajectory` can display it. Cases with no trace are left out.
+
+    Exits 2 when the trace file or suite is unreadable or invalid, a trace cannot be matched
+    to a case, or a scorer is misconfigured.
+    """
+    try:
+        suite = load_suite(suite_path)
+        traces, skipped = load_traces(traces_path)
+        result = anyio.run(score_imported, suite, traces, traces_path)
+        store = RunStore(db)
+    except (SuiteLoadError, OtelImportError, StorageError, ScorerConfigError) as exc:
+        _fail(str(exc))
+    except ProviderConfigError as exc:
+        _fail(str(exc))
+    with store:
+        store.save_run(result)
+    console = Console()
+    render_run(console, result)
+    missing = len(suite.cases) - len(result.results)
+    notes = [f"Imported {len(result.results)} trace(s) as run {result.run_id[:8]} in {db}"]
+    if skipped:
+        notes.append(f"{skipped} trace(s) without GenAI spans were ignored")
+    if missing:
+        notes.append(f"{missing} suite case(s) had no trace")
+    console.print("; ".join(notes))
