@@ -282,3 +282,14 @@ def test_matching_traces_to_cases_is_strict(tmp_path: Path) -> None:
     for spans, message in cases.values():
         with pytest.raises(OtelImportError, match=message):
             run_score(SUITE, load(tmp_path, export(*spans)), path)
+
+
+def test_the_final_answer_comes_from_the_latest_chat_span_that_has_one(tmp_path: Path) -> None:
+    # An outer chat span with no output ends at the same instant as the one that answered.
+    outer = span("t", "outer", 1, 100, "chat", gen_ai__response__model="m")
+    answering = span("t", "inner", 50, 100, "chat", gen_ai__output__messages=FINAL)
+    silent = span("t", "later", 60, 200, "chat")
+    (trace,) = load(tmp_path, export(outer, answering, silent))
+    assert trace.output.text == "It is sunny."
+    no_answer = load(tmp_path, export(outer, silent), "second.json")[0]
+    assert no_answer.output.text == ""
