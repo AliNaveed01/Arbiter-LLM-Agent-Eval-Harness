@@ -135,11 +135,36 @@ class ProviderConfig(_Model):
     match: Literal["exact", "contains"] = "exact"
 
 
+class AgentConfig(_Model):
+    """Run cases as an agent: call the model, execute its tool calls, repeat.
+
+    The loop stops when the model answers without calling a tool, or after
+    ``max_steps`` model calls.
+    """
+
+    max_steps: int = Field(default=8, ge=1, le=100)
+
+
+class ToolMock(_Model):
+    """A scripted tool result, so agent runs need no real tools.
+
+    A call matches when the tool name is equal and ``arguments`` is either unset (any
+    arguments) or equal to the call's arguments (strings compared ignoring case and edge
+    whitespace). The first matching mock wins.
+    """
+
+    tool: str
+    arguments: dict[str, Any] | None = None
+    result: str
+
+
 class Suite(_Model):
     """A named collection of test cases and the scorers applied to them.
 
     Each entry in ``scorers`` may be a bare registry name or a mapping with
-    ``name`` and ``params``. ``tools`` are offered to the model on every case.
+    ``name`` and ``params``. ``tools`` are offered to the model on every case. With
+    ``agent`` set the runner runs each case as a multi-step tool loop, answering tool
+    calls from ``tool_mocks``.
     """
 
     name: str
@@ -148,6 +173,8 @@ class Suite(_Model):
     description: str | None = None
     provider: ProviderConfig | None = None
     tools: tuple[ToolSpec, ...] = ()
+    agent: AgentConfig | None = None
+    tool_mocks: tuple[ToolMock, ...] = ()
 
     if TYPE_CHECKING:
 
@@ -160,6 +187,8 @@ class Suite(_Model):
             description: str | None = None,
             provider: ProviderConfig | None = None,
             tools: Sequence[ToolSpec] = (),
+            agent: AgentConfig | None = None,
+            tool_mocks: Sequence[ToolMock] = (),
         ) -> None: ...
 
     @field_validator("scorers", mode="before")
@@ -171,8 +200,37 @@ class Suite(_Model):
         return value
 
 
+class Trajectory(_Model):
+    """What an agent did: the assistant and tool messages produced while it ran, in order.
+
+    ``stop_reason`` is ``final`` when the agent ended by answering and
+    ``max_steps`` when it was cut off while still calling tools.
+    """
+
+    messages: tuple[Message, ...] = ()
+    stop_reason: Literal["final", "max_steps"] = "final"
+
+    @property
+    def tool_calls(self) -> tuple[ToolCall, ...]:
+        """Every tool call the agent made, in order."""
+        calls: list[ToolCall] = []
+        for message in self.messages:
+            if message.role == "assistant":
+                calls.extend(message.tool_calls)
+        return tuple(calls)
+
+    @property
+    def steps(self) -> int:
+        """How many times the model was asked (one assistant message per step)."""
+        return sum(1 for m in self.messages if m.role == "assistant")
+
+
 class ModelOutput(_Model):
-    """What a provider returned for one case."""
+    """What a provider returned for one case.
+
+    For an agent run ``text`` is the final answer, ``latency_ms`` and token counts are summed
+    over every step, and ``trajectory`` holds the steps.
+    """
 
     text: str
     latency_ms: float = Field(ge=0)
@@ -180,6 +238,7 @@ class ModelOutput(_Model):
     completion_tokens: int | None = Field(default=None, ge=0)
     cost_usd: float | None = Field(default=None, ge=0)
     tool_calls: tuple[ToolCall, ...] = ()
+    trajectory: Trajectory | None = None
     raw: dict[str, Any] | None = None
 
 

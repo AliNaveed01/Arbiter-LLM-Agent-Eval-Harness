@@ -127,3 +127,30 @@ def test_suite_tools_load_from_yaml(tmp_path: Path) -> None:
     )
     (tool,) = load_suite(path).tools
     assert (tool.name, tool.parameters["properties"]["city"]) == ("get_weather", {"type": "string"})
+
+
+def test_agent_block_and_tool_mocks_load_from_yaml(tmp_path: Path) -> None:
+    path = tmp_path / "suite.yaml"
+    path.write_text(
+        "name: s\n"
+        "agent: {max_steps: 4}\n"
+        "tool_mocks:\n"
+        "  - {tool: get_weather, arguments: {city: Paris}, result: sunny}\n"
+        "  - {tool: get_weather, result: unknown city}\n"
+        "cases:\n"
+        "  - {id: a, input: hi}\n"
+    )
+    suite = load_suite(path)
+    assert suite.agent is not None and suite.agent.max_steps == 4
+    assert [(m.tool, m.arguments, m.result) for m in suite.tool_mocks] == [
+        ("get_weather", {"city": "Paris"}, "sunny"),
+        ("get_weather", None, "unknown city"),
+    ]
+
+
+def test_invalid_agent_block_reports_its_line(tmp_path: Path) -> None:
+    path = tmp_path / "suite.yaml"
+    path.write_text("name: s\nagent:\n  max_steps: 0\ncases: []\n")
+    with pytest.raises(SuiteLoadError) as info:
+        load_suite(path)
+    assert info.value.line == 3
