@@ -48,8 +48,11 @@ def test_every_scorer_in_the_readme_table_is_registered() -> None:
         "llm_judge",
         "numeric_tolerance",
         "regex",
+        "tool_call",
+        "trajectory_budget",
+        "trajectory_match",
     ]
-    needs_params = {"json_schema", "llm_judge"}
+    needs_params = {"json_schema", "llm_judge", "trajectory_budget"}
     assert needs_params <= set(available_scorers())
     for name in names:
         if name not in needs_params:
