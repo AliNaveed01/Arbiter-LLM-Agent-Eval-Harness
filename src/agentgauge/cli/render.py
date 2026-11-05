@@ -12,7 +12,7 @@ from rich.table import Table
 from rich.text import Text
 
 from agentgauge.calibration import CalibrationReport
-from agentgauge.core.models import CaseResult, RunResult
+from agentgauge.core.models import CaseResult, RunResult, Trajectory
 from agentgauge.storage import RunSummary
 
 ID_WIDTH = 8
@@ -97,6 +97,55 @@ def render_run(console: Console, run: RunResult, *, verbose: bool = False) -> No
         table.add_row(*cells)
     console.print(table)
     console.print(_summary_line(summarize(run)))
+
+
+def _clip(text: str, width: int = 100) -> str:
+    flat = " ".join(text.split())
+    return flat if len(flat) <= width else flat[: width - 1] + "…"
+
+
+def _trajectory_lines(trajectory: Trajectory) -> list[Text]:
+    lines: list[Text] = []
+    step = 0
+    for message in trajectory.messages:
+        if message.role == "assistant":
+            step += 1
+            if message.content:
+                lines.append(Text.assemble(f"  {step:>2}  assistant  ", _clip(message.content)))
+            for call in message.tool_calls:
+                lines.append(
+                    Text.assemble(
+                        f"  {step:>2}  ",
+                        ("call", "cyan"),
+                        f"       {call.name} {_clip(call.arguments)}",
+                    )
+                )
+            if not message.content and not message.tool_calls:
+                lines.append(Text(f"  {step:>2}  assistant  (empty reply)", style="dim"))
+        else:
+            lines.append(
+                Text.assemble("      ", ("result", "green"), f"     {_clip(message.content)}")
+            )
+    return lines
+
+
+def render_trajectories(console: Console, run: RunResult) -> None:
+    """Print each case's agent steps: model text, tool calls, tool results and how it ended."""
+    console.print(Text("Trajectories", style="bold"))
+    for result in run.results:
+        trajectory = result.output.trajectory if result.output else None
+        if trajectory is None:
+            console.print(Text(f"{result.case_id}: no trajectory recorded", style="dim"))
+            continue
+        console.print(
+            Text.assemble(
+                (result.case_id, "bold"),
+                f"  {trajectory.steps} step(s), {len(trajectory.tool_calls)} tool call(s), "
+                f"stopped: {trajectory.stop_reason}",
+            )
+        )
+        for line in _trajectory_lines(trajectory):
+            console.print(line)
 
 
 def _preview(result: CaseResult) -> str:
