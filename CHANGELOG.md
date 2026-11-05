@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.2.0](https://github.com/AliNaveed01/agentgauge/compare/v0.1.0...v0.2.0) (2026-11-05)
+
+
+### Features
+
+* **bench:** add tool-use and judge benchmark for OpenAI-compatible endpoints ([e0a65af](https://github.com/AliNaveed01/agentgauge/commit/e0a65af1f197cd68edf1e1f87cce46d6cb62db87)), closes [#34](https://github.com/AliNaveed01/agentgauge/issues/34)
+* **calibration:** add accuracy, confusion matrix and per-class precision and recall ([3270754](https://github.com/AliNaveed01/agentgauge/commit/327075468da08462bcb894dee763ae9fa9441e28)), closes [#30](https://github.com/AliNaveed01/agentgauge/issues/30)
+* **calibration:** add Cohen's kappa with quadratic weighting ([951ed7c](https://github.com/AliNaveed01/agentgauge/commit/951ed7c86ab2eda807dae1d49ef4ae6cab64a711)), closes [#30](https://github.com/AliNaveed01/agentgauge/issues/30)
+* **calibration:** add label format and loader with file and line errors ([f982609](https://github.com/AliNaveed01/agentgauge/commit/f9826094db7d20c8a99471478cc91733b1158ad3)), closes [#29](https://github.com/AliNaveed01/agentgauge/issues/29)
+* **calibration:** add seeded bootstrap kappa interval and calibrate report ([582adb0](https://github.com/AliNaveed01/agentgauge/commit/582adb0d48d2a95f38090039ecab53105c184da5)), closes [#30](https://github.com/AliNaveed01/agentgauge/issues/30)
+* **cli:** add calibrate command ([1861d14](https://github.com/AliNaveed01/agentgauge/commit/1861d14ac9f4eff040c28c8d1d16a5e17bc0aced)), closes [#31](https://github.com/AliNaveed01/agentgauge/issues/31)
+* **cli:** render calibration reports with a kappa trust warning ([2502a90](https://github.com/AliNaveed01/agentgauge/commit/2502a903469d63754ae0f6a731e47d8afeb8dc4d)), closes [#31](https://github.com/AliNaveed01/agentgauge/issues/31)
+* **core:** add provenance details to Score ([ae6250c](https://github.com/AliNaveed01/agentgauge/commit/ae6250c9ec108eed428ce6ef512e6c1caf3d2cdc)), closes [#27](https://github.com/AliNaveed01/agentgauge/issues/27)
+* **core:** offer suite tools to the model on every case ([477e388](https://github.com/AliNaveed01/agentgauge/commit/477e3889a227aaf98903911619b743c9213fca0b)), closes [#34](https://github.com/AliNaveed01/agentgauge/issues/34)
+* **judge:** add Rubric and Scale models ([7cdba9b](https://github.com/AliNaveed01/agentgauge/commit/7cdba9b6a96783bf6f21ee8e1aad389b94e05143)), closes [#26](https://github.com/AliNaveed01/agentgauge/issues/26)
+* **judge:** add SQLite judge cache keyed by the full judge input ([e4c9918](https://github.com/AliNaveed01/agentgauge/commit/e4c991819847dcb916abfeccbf276652b2675d86)), closes [#28](https://github.com/AliNaveed01/agentgauge/issues/28)
+* **judge:** add versioned prompt template and rendering ([b0c13bc](https://github.com/AliNaveed01/agentgauge/commit/b0c13bc2e65ff17a9c7ef485123caf17223ba5e8)), closes [#26](https://github.com/AliNaveed01/agentgauge/issues/26)
+* **judge:** load rubrics from YAML with file and line errors ([00ba027](https://github.com/AliNaveed01/agentgauge/commit/00ba0277bcf657b93d974d2f4ff84c2d19ee3f7a)), closes [#26](https://github.com/AliNaveed01/agentgauge/issues/26)
+* **judge:** parse and validate judge verdicts ([36df2dd](https://github.com/AliNaveed01/agentgauge/commit/36df2dd9fdfe9cfe2781f26d1ab50e4376adb6cb)), closes [#27](https://github.com/AliNaveed01/agentgauge/issues/27)
+* **providers:** let the fake provider match responses by substring ([8ec5142](https://github.com/AliNaveed01/agentgauge/commit/8ec514292c3614a82bfbde52ffb8c503f14ae8a3)), closes [#32](https://github.com/AliNaveed01/agentgauge/issues/32)
+* **runner:** close scorers that hold resources when a run ends ([d3b293f](https://github.com/AliNaveed01/agentgauge/commit/d3b293f34f692064687fe62fa77c49e8c4bddce0)), closes [#27](https://github.com/AliNaveed01/agentgauge/issues/27)
+* **scorers:** add llm_judge scorer with one retry and provenance ([e812a77](https://github.com/AliNaveed01/agentgauge/commit/e812a77fd6f9f2dc9dffbfa130455ad47b69517f)), closes [#27](https://github.com/AliNaveed01/agentgauge/issues/27)
+* **scorers:** add tool_call scorer ([c5adbeb](https://github.com/AliNaveed01/agentgauge/commit/c5adbeb8bdbbacac7960b455e8fbabd8f807fefe)), closes [#34](https://github.com/AliNaveed01/agentgauge/issues/34)
+* **scorers:** serve llm_judge replies from the judge cache ([3c5f7b4](https://github.com/AliNaveed01/agentgauge/commit/3c5f7b4cdeb1c42997ac07469222d2c3a43cbc27)), closes [#28](https://github.com/AliNaveed01/agentgauge/issues/28)
+
+
+### Bug Fixes
+
+* **cli:** keep the confusion matrix title on one line ([8ba7a2f](https://github.com/AliNaveed01/agentgauge/commit/8ba7a2feb5a9ffe1a9736fca7bb7978e87e95c06)), closes [#31](https://github.com/AliNaveed01/agentgauge/issues/31)
+
+
+### Documentation
+
+* **adr:** record calibrate command decisions ([f71826a](https://github.com/AliNaveed01/agentgauge/commit/f71826a871a34655afd51e18943af919aeac6ff6)), closes [#31](https://github.com/AliNaveed01/agentgauge/issues/31)
+* **adr:** record judge cache decisions ([a0ce978](https://github.com/AliNaveed01/agentgauge/commit/a0ce978e99396cf10119bd2c1161bd1ca493f5f1)), closes [#28](https://github.com/AliNaveed01/agentgauge/issues/28)
+* **adr:** record label and calibration metric decisions ([8208ce7](https://github.com/AliNaveed01/agentgauge/commit/8208ce701f822051a757ebab72a852b7e38e0108)), closes [#30](https://github.com/AliNaveed01/agentgauge/issues/30)
+* **adr:** record llm_judge scorer decisions ([ea6c883](https://github.com/AliNaveed01/agentgauge/commit/ea6c883cc23f6a34339942bb3d727a50759bd465)), closes [#27](https://github.com/AliNaveed01/agentgauge/issues/27)
+* **adr:** record rubric and prompt template decisions ([a216a17](https://github.com/AliNaveed01/agentgauge/commit/a216a177473723bdeba4776728fe963cd40ecdc4)), closes [#26](https://github.com/AliNaveed01/agentgauge/issues/26)
+* **adr:** record tool-use benchmark decisions ([90f4c9e](https://github.com/AliNaveed01/agentgauge/commit/90f4c9e98a4e3261bc49dd249ec23ce460371f0b)), closes [#34](https://github.com/AliNaveed01/agentgauge/issues/34)
+* **bench:** add qwen3:0.6b results on local Ollama ([86e72d8](https://github.com/AliNaveed01/agentgauge/commit/86e72d8740d127f05556d21d7d688d2532caa341)), closes [#34](https://github.com/AliNaveed01/agentgauge/issues/34)
+* document installing from PyPI ([dcc31b0](https://github.com/AliNaveed01/agentgauge/commit/dcc31b067cbc1337f8b50439323154a0de9b1e4d))
+* **examples:** add a judge calibration example ([53a05a6](https://github.com/AliNaveed01/agentgauge/commit/53a05a6bc34c0bd1a55d63efc099be8734c20e22)), closes [#32](https://github.com/AliNaveed01/agentgauge/issues/32)
+* explain judge calibration ([bc485c5](https://github.com/AliNaveed01/agentgauge/commit/bc485c58c007bbdb6a73398f4e6d2f46345ab005)), closes [#32](https://github.com/AliNaveed01/agentgauge/issues/32)
+* mention the llm_judge scorer and calibrate in the README ([795178c](https://github.com/AliNaveed01/agentgauge/commit/795178cbd20c67e24c8392dcfe92d0d78d2f2192)), closes [#32](https://github.com/AliNaveed01/agentgauge/issues/32)
+
 ## [0.1.0](https://github.com/AliNaveed01/agentgauge/compare/v0.0.1...v0.1.0) (2026-11-04)
 
 
