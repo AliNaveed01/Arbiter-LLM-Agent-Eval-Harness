@@ -13,6 +13,7 @@ from agentgauge.core import (
     ScorerSpec,
     Suite,
     TestCase,
+    ToolSpec,
 )
 from agentgauge.providers import FakeProvider
 from agentgauge.runner import run_suite
@@ -257,3 +258,21 @@ def test_scorers_with_aclose_are_closed_after_the_run() -> None:
     finally:
         unregister_scorer("closable")
     assert Closable.closed == 1
+
+
+def test_suite_tools_are_offered_to_the_provider_on_every_case() -> None:
+    tool = ToolSpec(name="get_weather", description="Weather", parameters={"type": "object"})
+    suite = Suite(
+        name="s",
+        cases=(TestCase(id="a", input="q0"), TestCase(id="b", input="q1")),
+        tools=(tool,),
+    )
+    provider = answers()
+    asyncio.run(run_suite(suite, provider))
+    assert [call.tools for call in provider.calls] == [(tool,), (tool,)]
+
+
+def test_suites_without_tools_send_none() -> None:
+    provider = answers()
+    asyncio.run(run_suite(make_suite(1), provider))
+    assert provider.calls[0].tools == ()

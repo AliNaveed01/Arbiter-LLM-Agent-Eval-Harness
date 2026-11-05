@@ -139,7 +139,7 @@ class Suite(_Model):
     """A named collection of test cases and the scorers applied to them.
 
     Each entry in ``scorers`` may be a bare registry name or a mapping with
-    ``name`` and ``params``.
+    ``name`` and ``params``. ``tools`` are offered to the model on every case.
     """
 
     name: str
@@ -147,6 +147,7 @@ class Suite(_Model):
     scorers: tuple[ScorerSpec, ...] = ()
     description: str | None = None
     provider: ProviderConfig | None = None
+    tools: tuple[ToolSpec, ...] = ()
 
     if TYPE_CHECKING:
 
@@ -158,6 +159,7 @@ class Suite(_Model):
             scorers: Sequence[str | ScorerSpec] = (),
             description: str | None = None,
             provider: ProviderConfig | None = None,
+            tools: Sequence[ToolSpec] = (),
         ) -> None: ...
 
     @field_validator("scorers", mode="before")
