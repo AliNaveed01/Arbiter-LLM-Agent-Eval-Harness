@@ -17,6 +17,7 @@ from agentgauge.core.models import (
     Score,
     Suite,
     TestCase,
+    ToolSpec,
 )
 from agentgauge.providers.base import Provider
 from agentgauge.scorers.base import Scorer
@@ -49,7 +50,7 @@ async def run_suite(
 
     async def worker(index: int, case: TestCase) -> None:
         async with limiter:
-            slots[index] = await _run_case(case, provider, scorers, params, clock)
+            slots[index] = await _run_case(case, provider, scorers, suite.tools, params, clock)
 
     try:
         async with anyio.create_task_group() as group:
@@ -72,10 +73,11 @@ async def _run_case(
     case: TestCase,
     provider: Provider,
     scorers: Sequence[Scorer],
+    tools: tuple[ToolSpec, ...],
     params: GenerationParams | None,
     clock: Callable[[], float],
 ) -> CaseResult:
-    request = CompletionRequest(messages=case.input, params=params)
+    request = CompletionRequest(messages=case.input, tools=tools, params=params)
     start = clock()
     try:
         output = await provider.complete(request)

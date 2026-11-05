@@ -112,3 +112,18 @@ def test_yaml_provider_block() -> None:
 
 def test_provider_is_optional() -> None:
     assert load_suite(FIXTURES / "valid.yaml").provider is None
+
+
+def test_suite_tools_load_from_yaml(tmp_path: Path) -> None:
+    path = tmp_path / "suite.yaml"
+    path.write_text(
+        "name: s\n"
+        "tools:\n"
+        "  - name: get_weather\n"
+        "    description: Current weather for a city\n"
+        "    parameters: {type: object, properties: {city: {type: string}}}\n"
+        "cases:\n"
+        "  - {id: a, input: hi}\n"
+    )
+    (tool,) = load_suite(path).tools
+    assert (tool.name, tool.parameters["properties"]["city"]) == ("get_weather", {"type": "string"})
