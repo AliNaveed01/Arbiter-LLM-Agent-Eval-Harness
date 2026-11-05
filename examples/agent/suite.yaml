@@ -1,0 +1,84 @@
+# A multi-step tool-loop example. Everything is scripted, so it runs offline: the "model" is a
+# fake provider whose replies are lists (the n-th item answers the n-th step), and the tools'
+# results come from tool_mocks. One case never finishes, on purpose.
+# See docs/trajectories.md.
+name: flight-agent
+description: Four requests to a flight-booking agent, judged on the route it takes, not only the answer.
+
+provider:
+  type: fake
+  model: scripted-agent
+  responses:
+    "Book me the cheapest flight from Oslo to Rome.":
+      - tool_calls: [{name: search_flights, arguments: {origin: Oslo, destination: Rome}}]
+      - tool_calls: [{name: book_flight, arguments: {flight_id: FL100}}]
+      - "Booked FL100 for $200."
+    "What is the capital of France?": "The capital of France is Paris."
+    "Find flights from Oslo to Rome, then book the cheapest.":
+      - tool_calls: [{name: search_flights, arguments: {origin: Oslo, destination: Rome}}]
+      - tool_calls: [{name: search_flights, arguments: {origin: Oslo, destination: Rome}}]
+      - tool_calls: [{name: book_flight, arguments: {flight_id: FL100}}]
+      - "Booked FL100 for $200."
+    "Keep looking until you find a flight under $100.":
+      - tool_calls: [{name: search_flights, arguments: {origin: Oslo, destination: Rome}}]
+
+tools:
+  - name: search_flights
+    description: Search flights between two cities.
+    parameters:
+      type: object
+      properties:
+        origin: {type: string}
+        destination: {type: string}
+      required: [origin, destination]
+  - name: book_flight
+    description: Book a flight by id.
+    parameters:
+      type: object
+      properties:
+        flight_id: {type: string}
+      required: [flight_id]
+
+tool_mocks:
+  - tool: search_flights
+    arguments: {origin: Oslo, destination: Rome}
+    result: "FL100 $200 (nonstop); FL200 $350 (one stop)"
+  - tool: book_flight
+    arguments: {flight_id: FL100}
+    result: "Confirmed: FL100"
+
+agent:
+  max_steps: 4
+
+scorers:
+  - name: trajectory_match
+    params: {mode: in_order}
+  - name: trajectory_budget
+    params: {max_calls: 3}
+
+cases:
+  - id: book-cheapest
+    input: "Book me the cheapest flight from Oslo to Rome."
+    metadata:
+      expected_trajectory:
+        - {name: search_flights, arguments: {origin: Oslo, destination: Rome}}
+        - {name: book_flight, arguments: {flight_id: FL100}}
+
+  - id: no-tool-needed
+    input: "What is the capital of France?"
+    metadata:
+      expected_trajectory: []
+
+  - id: search-twice
+    input: "Find flights from Oslo to Rome, then book the cheapest."
+    metadata:
+      expected_trajectory:
+        - {name: search_flights, arguments: {origin: Oslo, destination: Rome}}
+        - {name: book_flight, arguments: {flight_id: FL100}}
+
+  - id: never-finishes
+    input: "Keep looking until you find a flight under $100."
+    metadata:
+      expected_trajectory:
+        - {name: search_flights, arguments: {origin: Oslo, destination: Rome}}
+        - {name: book_flight, arguments: {flight_id: FL100}}

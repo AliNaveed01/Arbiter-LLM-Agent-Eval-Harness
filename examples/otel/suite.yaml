@@ -1,0 +1,25 @@
+# Scores the agent traces in traces.json. The traces were produced elsewhere (here, written by
+# hand in OTLP/JSON); agentgauge only reads them. See docs/trajectories.md.
+#
+#   agentgauge import-otel examples/otel/traces.json --suite examples/otel/suite.yaml
+name: otel-demo
+description: Two recorded agent traces, scored on their tool-call sequence.
+
+scorers:
+  - name: trajectory_match
+    params: {mode: exact}
+
+cases:
+  - id: book-cheapest
+    input: "Book me the cheapest flight from Oslo to Rome."
+    metadata:
+      expected_trajectory:
+        - {name: search_flights, arguments: {origin: Oslo, destination: Rome}}
+        - {name: book_flight, arguments: {flight_id: FL100}}
+
+  - id: refund-flow
+    input: "Refund booking B-77."
+    metadata:
+      expected_trajectory:
+        - {name: lookup_booking, arguments: {booking_id: B-77}}
+        - {name: issue_refund, arguments: {booking_id: B-77}}
