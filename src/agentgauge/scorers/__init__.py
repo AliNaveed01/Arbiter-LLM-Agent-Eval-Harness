@@ -16,6 +16,7 @@ from agentgauge.scorers.registry import (
     register_scorer,
     unregister_scorer,
 )
+from agentgauge.scorers.tool_call import ToolCallScorer
 
 __all__ = [
     "Contains",
@@ -27,6 +28,7 @@ __all__ = [
     "Regex",
     "Scorer",
     "ScorerConfigError",
+    "ToolCallScorer",
     "available_scorers",
     "create_scorer",
     "register_scorer",
