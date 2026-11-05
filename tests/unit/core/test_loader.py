@@ -154,3 +154,46 @@ def test_invalid_agent_block_reports_its_line(tmp_path: Path) -> None:
     with pytest.raises(SuiteLoadError) as info:
         load_suite(path)
     assert info.value.line == 3
+
+
+def test_relative_rubric_paths_resolve_against_the_suite_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = tmp_path / "suites"
+    folder.mkdir()
+    (folder / "rubric.yaml").write_text("name: r\ncriteria: [c]\nscale: binary\n")
+    (folder / "suite.yaml").write_text(
+        "name: s\n"
+        "scorers:\n"
+        "  - name: llm_judge\n"
+        "    params: {rubric: rubric.yaml, judge: {type: fake}}\n"
+        "  - name: exact_match\n"
+        "cases: [{id: a, input: hi}]\n"
+    )
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    suite = load_suite(folder / "suite.yaml")
+    assert suite.scorers[0].params["rubric"] == str(folder / "rubric.yaml")
+    assert suite.scorers[0].params["judge"] == {"type": "fake"}
+    assert suite.scorers[1].params == {}
+
+
+@pytest.mark.parametrize("rubric", ["missing.yaml", "{name: r}"])
+def test_rubric_paths_that_do_not_exist_next_to_the_suite_are_left_alone(
+    tmp_path: Path, rubric: str
+) -> None:
+    (tmp_path / "suite.yaml").write_text(
+        f"name: s\nscorers:\n  - name: llm_judge\n    params: {{rubric: {rubric}}}\ncases: []\n"
+    )
+    (spec,) = load_suite(tmp_path / "suite.yaml").scorers
+    assert spec.params["rubric"] in ("missing.yaml", {"name": "r"})
+
+
+def test_absolute_rubric_paths_are_untouched(tmp_path: Path) -> None:
+    rubric = tmp_path / "rubric.yaml"
+    rubric.write_text("name: r\ncriteria: [c]\nscale: binary\n")
+    (tmp_path / "suite.yaml").write_text(
+        f"name: s\nscorers:\n  - name: llm_judge\n    params: {{rubric: {rubric}}}\ncases: []\n"
+    )
+    assert load_suite(tmp_path / "suite.yaml").scorers[0].params["rubric"] == str(rubric)
