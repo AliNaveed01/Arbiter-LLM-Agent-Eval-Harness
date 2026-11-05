@@ -293,3 +293,29 @@ def test_the_final_answer_comes_from_the_latest_chat_span_that_has_one(tmp_path:
     assert trace.output.text == "It is sunny."
     no_answer = load(tmp_path, export(outer, silent), "second.json")[0]
     assert no_answer.output.text == ""
+
+
+def test_every_otlp_value_type_is_decoded(tmp_path: Path) -> None:
+    tool_span = tool(
+        "t",
+        "s",
+        1,
+        "ping",
+        gen_ai__tool__call__arguments={
+            "n": 2.5,
+            "flag": True,
+            "tags": ["a", "b"],
+            "nested": {"k": 1},
+        },
+    )
+    (trace,) = load(tmp_path, export(tool_span))
+    assert trace.output.trajectory is not None
+    arguments = json.loads(trace.output.trajectory.tool_calls[0].arguments)
+    assert arguments == {"n": 2.5, "flag": True, "tags": ["a", "b"], "nested": {"k": 1}}
+
+
+def test_attributes_with_unknown_value_types_or_no_key_are_ignored(tmp_path: Path) -> None:
+    odd = tool("t", "s", 1, "ping")
+    odd["attributes"] += [{"key": "x", "value": {"bytesValue": "AA=="}}, {"value": {}}, "junk"]
+    (trace,) = load(tmp_path, export(odd))
+    assert trace.output.trajectory is not None
