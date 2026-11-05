@@ -78,3 +78,15 @@ def test_expected_arguments_default_to_empty_and_key_is_configurable() -> None:
     scorer = create_scorer(ScorerSpec(name="tool_call", params={"key": "want"}))
     result = asyncio.run(scorer.score(case(WEATHER, key="want"), output(call())))
     assert result.passed
+
+
+def test_list_arguments_are_compared_element_wise_with_the_same_rules() -> None:
+    expected = {"name": "tag", "arguments": {"labels": ["Red", "blue"], "n": 2}}
+    assert run(case(expected), output(call("tag", {"labels": [" red", "BLUE "], "n": 2}))) == (
+        True,
+        "ok",
+    )
+    assert run(case(expected), output(call("tag", {"labels": ["red"], "n": 2}))) == (
+        False,
+        "wrong_arguments",
+    )
