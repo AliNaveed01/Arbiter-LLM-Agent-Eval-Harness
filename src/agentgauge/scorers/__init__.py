@@ -17,6 +17,7 @@ from agentgauge.scorers.registry import (
     unregister_scorer,
 )
 from agentgauge.scorers.tool_call import ToolCallScorer
+from agentgauge.scorers.trajectory import TrajectoryBudget, TrajectoryMatch
 
 __all__ = [
     "Contains",
@@ -29,6 +30,8 @@ __all__ = [
     "Scorer",
     "ScorerConfigError",
     "ToolCallScorer",
+    "TrajectoryBudget",
+    "TrajectoryMatch",
     "available_scorers",
     "create_scorer",
     "register_scorer",
