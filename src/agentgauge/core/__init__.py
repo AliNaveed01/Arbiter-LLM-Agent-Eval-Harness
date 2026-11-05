@@ -2,6 +2,7 @@
 
 from agentgauge.core.loader import SuiteLoadError, load_suite
 from agentgauge.core.models import (
+    AgentConfig,
     CaseResult,
     CompletionRequest,
     GenerationParams,
@@ -14,10 +15,13 @@ from agentgauge.core.models import (
     Suite,
     TestCase,
     ToolCall,
+    ToolMock,
     ToolSpec,
+    Trajectory,
 )
 
 __all__ = [
+    "AgentConfig",
     "CaseResult",
     "CompletionRequest",
     "GenerationParams",
@@ -31,6 +35,8 @@ __all__ = [
     "SuiteLoadError",
     "TestCase",
     "ToolCall",
+    "ToolMock",
     "ToolSpec",
+    "Trajectory",
     "load_suite",
 ]

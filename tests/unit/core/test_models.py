@@ -4,6 +4,7 @@ import pytest
 from pydantic import BaseModel, ValidationError
 
 from agentgauge.core import (
+    AgentConfig,
     CaseResult,
     CompletionRequest,
     GenerationParams,
@@ -16,7 +17,9 @@ from agentgauge.core import (
     Suite,
     TestCase,
     ToolCall,
+    ToolMock,
     ToolSpec,
+    Trajectory,
 )
 
 
@@ -256,3 +259,49 @@ def test_score_details_default_empty_and_round_trip_through_json() -> None:
     assert Score(scorer="s", value=1.0, passed=True).details == {}
     score = Score(scorer="s", value=1.0, passed=True, details={"judge_model": "m", "n": [1, 2]})
     assert Score.model_validate_json(score.model_dump_json()) == score
+
+
+def _step(call_id: str, name: str) -> tuple[Message, Message]:
+    call = ToolCall(id=call_id, name=name, arguments="{}")
+    return (
+        Message(role="assistant", content="", tool_calls=(call,)),
+        Message(role="tool", content="ok", tool_call_id=call_id),
+    )
+
+
+def test_trajectory_lists_tool_calls_in_order_and_counts_steps() -> None:
+    first, second = _step("1", "a"), _step("2", "b")
+    final = Message(role="assistant", content="done")
+    trajectory = Trajectory(messages=(*first, *second, final))
+    assert [c.name for c in trajectory.tool_calls] == ["a", "b"]
+    assert trajectory.steps == 3
+    assert trajectory.stop_reason == "final"
+
+
+def test_empty_trajectory_and_stop_reason_validation() -> None:
+    assert Trajectory().tool_calls == () and Trajectory().steps == 0
+    with pytest.raises(ValidationError):
+        Trajectory(stop_reason="gave_up")  # type: ignore[arg-type]
+
+
+def test_output_trajectory_round_trips_through_json() -> None:
+    trajectory = Trajectory(messages=(*_step("1", "a"),), stop_reason="max_steps")
+    output = ModelOutput(text="", latency_ms=1.0, trajectory=trajectory)
+    assert ModelOutput.model_validate_json(output.model_dump_json()) == output
+    assert ModelOutput(text="x", latency_ms=1.0).trajectory is None
+
+
+def test_agent_config_bounds_and_suite_fields() -> None:
+    assert AgentConfig().max_steps == 8
+    for bad in (0, 101):
+        with pytest.raises(ValidationError):
+            AgentConfig(max_steps=bad)
+    suite = Suite(
+        name="s",
+        cases=(),
+        agent=AgentConfig(max_steps=3),
+        tool_mocks=(ToolMock(tool="t", result="r"),),
+    )
+    assert suite.agent is not None and suite.agent.max_steps == 3
+    assert suite.tool_mocks[0].arguments is None
+    assert Suite(name="s", cases=()).agent is None
