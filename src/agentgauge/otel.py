@@ -12,7 +12,8 @@ Per span (``gen_ai.*`` attributes):
   ``gen_ai.tool.call.result`` are used when present (a string, or a structured value that is
   stored as JSON).
 * ``gen_ai.operation.name`` = ``chat``: ``gen_ai.output.messages`` (a JSON string or array of
-  messages with ``parts``) supplies the final answer, taken from the last chat span;
+  messages with ``parts``) supplies the final answer, taken from the latest chat span that
+  has one;
   ``gen_ai.usage.input_tokens`` and ``gen_ai.usage.output_tokens`` are summed;
   ``gen_ai.response.model`` (or ``gen_ai.request.model``) names the model.
 
@@ -230,7 +231,11 @@ def _convert(path: Path, trace_id: str, spans: list[_Span]) -> ImportedTrace | N
         messages.append(Message(role="assistant", content="", tool_calls=(call,)))
         result = _text(span.attributes.get("gen_ai.tool.call.result"))
         messages.append(Message(role="tool", content=result, tool_call_id=call.id))
-    final = _final_text(path, max(chats, key=lambda s: s.end_ns)) if chats else ""
+    final = ""
+    for chat in sorted(chats, key=lambda s: (s.end_ns, s.start_ns), reverse=True):
+        final = _final_text(path, chat)
+        if final:
+            break
     if final:
         messages.append(Message(role="assistant", content=final))
     case_ids = [s.attributes[CASE_ID_ATTRIBUTE] for s in spans if CASE_ID_ATTRIBUTE in s.attributes]
