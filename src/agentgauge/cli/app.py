@@ -325,9 +325,13 @@ def import_otel(
         traces, skipped = load_traces(traces_path)
         result = anyio.run(score_imported, suite, traces, traces_path)
         store = RunStore(db)
-    except (SuiteLoadError, OtelImportError, StorageError, ScorerConfigError) as exc:
-        _fail(str(exc))
-    except ProviderConfigError as exc:
+    except (
+        SuiteLoadError,
+        OtelImportError,
+        StorageError,
+        ScorerConfigError,
+        ProviderConfigError,
+    ) as exc:
         _fail(str(exc))
     with store:
         store.save_run(result)
