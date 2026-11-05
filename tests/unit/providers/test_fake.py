@@ -155,3 +155,43 @@ def test_contains_matching_applies_to_errors_and_exact_stays_the_default() -> No
         asyncio.run(
             exact.complete(CompletionRequest(messages=(Message(role="user", content="xx"),)))
         )
+
+
+def _complete(provider: FakeProvider, *messages: Message) -> object:
+    return asyncio.run(provider.complete(CompletionRequest(messages=messages)))
+
+
+def test_a_list_response_is_a_script_indexed_by_steps_taken() -> None:
+    call = ToolCall(id="1", name="search", arguments="{}")
+    provider = FakeProvider(
+        {"q": [FakeResponse(tool_calls=(call,)), FakeResponse(tool_calls=(call,)), "all done"]}
+    )
+    user = Message(role="user", content="q")
+    step = Message(role="assistant", content="", tool_calls=(call,))
+    result = Message(role="tool", content="r", tool_call_id="1")
+    first = asyncio.run(provider.complete(CompletionRequest(messages=(user,))))
+    second = asyncio.run(provider.complete(CompletionRequest(messages=(user, step, result))))
+    last = asyncio.run(
+        provider.complete(CompletionRequest(messages=(user, step, result, step, result)))
+    )
+    beyond = asyncio.run(
+        provider.complete(
+            CompletionRequest(messages=(user, step, result, step, result, step, result))
+        )
+    )
+    assert [first.tool_calls != (), second.tool_calls != (), last.text, beyond.text] == [
+        True,
+        True,
+        "all done",
+        "all done",
+    ]
+
+
+def test_steps_are_counted_after_the_last_user_message_only() -> None:
+    provider = FakeProvider({"again": ["first", "second"]})
+    earlier = (
+        Message(role="user", content="before"),
+        Message(role="assistant", content="old answer"),
+        Message(role="user", content="again"),
+    )
+    assert asyncio.run(provider.complete(CompletionRequest(messages=earlier))).text == "first"

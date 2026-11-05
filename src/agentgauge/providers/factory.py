@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Mapping
 
-from agentgauge.core.models import ProviderConfig
+from agentgauge.core.models import FakeReply, ProviderConfig, ToolCall
 from agentgauge.providers.base import Provider
-from agentgauge.providers.fake import FakeProvider
+from agentgauge.providers.fake import FakeProvider, FakeResponse
 from agentgauge.providers.openai_compat import DEFAULT_BASE_URL, OpenAICompatProvider
 
 DEFAULT_API_KEY_ENV = "OPENAI_API_KEY"
@@ -15,6 +16,30 @@ DEFAULT_API_KEY_ENV = "OPENAI_API_KEY"
 
 class ProviderConfigError(ValueError):
     """The provider configuration is incomplete or refers to something missing."""
+
+
+def _reply(value: str | FakeReply) -> str | FakeResponse:
+    if isinstance(value, str):
+        return value
+    calls = tuple(
+        ToolCall(
+            id=f"call_{index}",
+            name=call.name,
+            arguments=call.arguments
+            if isinstance(call.arguments, str)
+            else json.dumps(call.arguments),
+        )
+        for index, call in enumerate(value.tool_calls, start=1)
+    )
+    return FakeResponse(text=value.text, tool_calls=calls)
+
+
+def _fake_response(
+    value: str | FakeReply | list[str | FakeReply],
+) -> str | FakeResponse | list[str | FakeResponse]:
+    if isinstance(value, list):
+        return [_reply(item) for item in value]
+    return _reply(value)
 
 
 def build_provider(config: ProviderConfig, env: Mapping[str, str] | None = None) -> Provider:
@@ -28,7 +53,7 @@ def build_provider(config: ProviderConfig, env: Mapping[str, str] | None = None)
     environ = os.environ if env is None else env
     if config.type == "fake":
         return FakeProvider(
-            config.responses,
+            {key: _fake_response(value) for key, value in config.responses.items()},
             params=config.params,
             name=config.model or "fake",
             match=config.match,

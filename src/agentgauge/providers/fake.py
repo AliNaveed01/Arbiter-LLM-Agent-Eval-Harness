@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal
 
@@ -23,6 +23,9 @@ class FakeResponse:
     tool_calls: tuple[ToolCall, ...] = ()
 
 
+Reply = str | FakeResponse
+
+
 class FakeProvider:
     """Returns canned responses and never touches the network.
 
@@ -30,15 +33,18 @@ class FakeProvider:
     default ``match="exact"`` a key must equal that content. With
     ``match="contains"`` a key matches when it appears anywhere in it, and the
     first matching key (in insertion order) wins; this suits long, generated
-    prompts such as a judge's. Output is a pure function of the request, so the
+    prompts such as a judge's. A response may be a list: in an agent run the n-th item
+    answers the n-th step (counted by the assistant messages after the last user message,
+    the last item repeating), so a script of tool calls then an answer is still a pure
+    function of the request. Output is a pure function of the request, so the
     same request always yields the same result.
     """
 
     def __init__(
         self,
-        responses: Mapping[str, str | FakeResponse] | None = None,
+        responses: Mapping[str, Reply | Sequence[Reply]] | None = None,
         *,
-        default: str | FakeResponse | None = None,
+        default: Reply | None = None,
         errors: Mapping[str, Exception] | None = None,
         params: GenerationParams | None = None,
         latency_ms: float = 0.0,
@@ -73,6 +79,9 @@ class FakeProvider:
             if self._default is None:
                 raise KeyError(f"FakeProvider has no response for user message: {key!r}")
             response = self._default
+        if not isinstance(response, str | FakeResponse):
+            steps = _steps_taken(request.messages)
+            response = response[min(steps, len(response) - 1)]
         if isinstance(response, str):
             response = FakeResponse(text=response)
         return ModelOutput(
@@ -88,6 +97,17 @@ class FakeProvider:
         if self._match == "exact":
             return table.get(key)
         return next((value for pattern, value in table.items() if pattern in key), None)
+
+
+def _steps_taken(messages: tuple[Message, ...]) -> int:
+    """How many assistant messages follow the last user message."""
+    steps = 0
+    for message in reversed(messages):
+        if message.role == "user":
+            break
+        if message.role == "assistant":
+            steps += 1
+    return steps
 
 
 def _last_user_content(messages: tuple[Message, ...]) -> str:
