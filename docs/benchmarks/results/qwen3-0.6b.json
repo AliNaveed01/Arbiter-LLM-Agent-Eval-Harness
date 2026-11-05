@@ -1,0 +1,168 @@
+{
+  "model": "qwen3:0.6b",
+  "agent": {
+    "cases": 12,
+    "passed": 10,
+    "pass_rate": 0.8333333333333334,
+    "tool_cases": 9,
+    "tool_correct": 7,
+    "tool_call_accuracy": 0.7777777777777778,
+    "mean_latency_ms": 777.6513263318824,
+    "outcomes": {
+      "no_call": 2,
+      "ok": 10
+    },
+    "per_case": {
+      "weather-paris": "no_call",
+      "weather-tokyo": "no_call",
+      "weather-lima": "ok",
+      "currency-usd-eur": "ok",
+      "currency-gbp-jpy": "ok",
+      "currency-cad-usd": "ok",
+      "timer-ten": "ok",
+      "timer-forty-five": "ok",
+      "timer-two": "ok",
+      "no-tool-capital": "ok",
+      "no-tool-arithmetic": "ok",
+      "no-tool-greeting": "ok"
+    }
+  },
+  "judge": {
+    "cases": 30,
+    "judged": 30,
+    "problems": {},
+    "kappa": 0.06666666666666665,
+    "kappa_ci": [
+      -0.2780269058295963,
+      0.4104803493449781
+    ],
+    "accuracy": 0.5333333333333333,
+    "confusion": [
+      [
+        10,
+        5
+      ],
+      [
+        9,
+        6
+      ]
+    ]
+  },
+  "raw_agent_outputs": {
+    "weather-paris": {
+      "text": "",
+      "tool_calls": [],
+      "error": null
+    },
+    "weather-tokyo": {
+      "text": "",
+      "tool_calls": [],
+      "error": null
+    },
+    "weather-lima": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_ff2sfqm5",
+          "name": "get_weather",
+          "arguments": "{\"city\":\"Lima\"}"
+        }
+      ],
+      "error": null
+    },
+    "currency-usd-eur": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_9retsmv3",
+          "name": "convert_currency",
+          "arguments": "{\"amount\":100,\"from\":\"USD\",\"to\":\"EUR\"}"
+        }
+      ],
+      "error": null
+    },
+    "currency-gbp-jpy": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_illlkrkq",
+          "name": "convert_currency",
+          "arguments": "{\"to\":\"JPY\",\"amount\":250,\"from\":\"GBP\"}"
+        }
+      ],
+      "error": null
+    },
+    "currency-cad-usd": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_u1j3rm82",
+          "name": "convert_currency",
+          "arguments": "{\"amount\":75,\"from\":\"CAD\",\"to\":\"USD\"}"
+        }
+      ],
+      "error": null
+    },
+    "timer-ten": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_pryzlzzc",
+          "name": "set_timer",
+          "arguments": "{\"minutes\":10}"
+        }
+      ],
+      "error": null
+    },
+    "timer-forty-five": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_ueidqnnv",
+          "name": "set_timer",
+          "arguments": "{\"minutes\":45}"
+        }
+      ],
+      "error": null
+    },
+    "timer-two": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_8jp2o2ic",
+          "name": "set_timer",
+          "arguments": "{\"minutes\":2}"
+        }
+      ],
+      "error": null
+    },
+    "no-tool-capital": {
+      "text": "The capital of France is Paris. However, I don't have access to tools that provide geographical or historical information about countries.",
+      "tool_calls": [],
+      "error": null
+    },
+    "no-tool-arithmetic": {
+      "text": "I don't have access to a calculator or mathematical tool to perform calculations like this. Let me know if you need help with something else!",
+      "tool_calls": [],
+      "error": null
+    },
+    "no-tool-greeting": {
+      "text": "Hello! How are you today? I'm here to help. Let me know if there's anything you need!",
+      "tool_calls": [],
+      "error": null
+    }
+  },
+  "environment": {
+    "machine": "arm64",
+    "chip": "Apple M2 Pro",
+    "ram_gib": 16,
+    "ollama_version": "ollama version is 0.40.14",
+    "model_size": "522 MB",
+    "python": "3.12.13"
+  },
+  "settings": {
+    "temperature": 0.0,
+    "seed": 42,
+    "max_tokens": 2048
+  }
+}
