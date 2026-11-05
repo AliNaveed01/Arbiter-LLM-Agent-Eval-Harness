@@ -13,7 +13,12 @@ from rich.console import Console
 from agentgauge import __version__
 from agentgauge.calibration import LabelLoadError, load_labels
 from agentgauge.calibration import calibrate as compute_calibration
-from agentgauge.cli.render import render_calibration, render_run, render_run_list
+from agentgauge.cli.render import (
+    render_calibration,
+    render_run,
+    render_run_list,
+    render_trajectories,
+)
 from agentgauge.core import ProviderConfig, RunResult, Suite, SuiteLoadError, load_suite
 from agentgauge.judge import Scale
 from agentgauge.providers import ProviderConfigError, build_provider
@@ -160,8 +165,15 @@ def runs_list(
 def runs_show(
     run_id: Annotated[str, typer.Argument(metavar="ID", help="Run id or unique id prefix.")],
     db: DbOption = DEFAULT_DB,
+    trajectory: Annotated[
+        bool, typer.Option("--trajectory", help="Also print each case's agent steps.")
+    ] = False,
 ) -> None:
-    """Show one stored run in detail, including each case's output."""
+    """Show one stored run in detail, including each case's output.
+
+    With --trajectory, also prints every agent step: the model's text, its tool calls with
+    arguments, the tool results it was given, and how the run ended.
+    """
     try:
         store = RunStore(db)
     except StorageError as exc:
@@ -171,7 +183,10 @@ def runs_show(
             run = store.get_run(run_id)
         except StorageError as exc:  # unknown id or ambiguous prefix
             _fail(str(exc), code=1)
-    render_run(Console(), run, verbose=True)
+    console = Console()
+    render_run(console, run, verbose=True)
+    if trajectory:
+        render_trajectories(console, run)
 
 
 @app.command()
