@@ -136,3 +136,13 @@ def test_fake_config_scripts_tool_calls_with_mapping_or_string_arguments() -> No
         ("call_2", "ping", "{}"),
     ]
     assert (third.text, fourth.text) == ("found it", "plain string")
+
+
+def test_extra_body_reaches_the_openai_compat_provider() -> None:
+    config = ProviderConfig(
+        type="openai_compat", model="m", extra_body={"reasoning_effort": "none"}
+    )
+    provider = build_provider(config, env={})
+    assert isinstance(provider, OpenAICompatProvider)
+    payload = provider._payload(CompletionRequest(messages=(Message(role="user", content="x"),)))  # pyright: ignore[reportPrivateUsage]
+    assert payload["reasoning_effort"] == "none"

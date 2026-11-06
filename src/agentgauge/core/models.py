@@ -140,6 +140,8 @@ class ProviderConfig(_Model):
     response is a string, a ``{text, tool_calls}`` reply, or a list of those: in an agent
     run the list's n-th item answers the n-th step. ``api_key_env`` names the
     environment variable holding the API key; keys are never stored in suites.
+    ``extra_body`` adds server-specific fields to every ``openai_compat`` request, such as
+    ``{"reasoning_effort": "none"}`` to switch thinking off on Ollama.
     """
 
     type: Literal["openai_compat", "fake"]
@@ -147,6 +149,7 @@ class ProviderConfig(_Model):
     base_url: str | None = None
     api_key_env: str | None = None
     params: GenerationParams | None = None
+    extra_body: dict[str, Any] = Field(default_factory=lambda: {})
     responses: dict[str, str | FakeReply | list[str | FakeReply]] = Field(
         default_factory=lambda: {}
     )

@@ -88,7 +88,8 @@ class OpenAICompatProvider:
     retried up to ``max_retries`` times with exponential backoff and full jitter.
     A ``Retry-After`` header (in seconds) raises the wait, up to ``backoff_max``.
     Other 4xx responses fail immediately. Reported latency is that of the
-    successful request only, not of earlier failed attempts or waits.
+    successful request only, not of earlier failed attempts or waits. ``extra_body`` fields
+    are added to every request; they may not replace a field the adapter sets itself.
     """
 
     def __init__(
@@ -98,6 +99,7 @@ class OpenAICompatProvider:
         base_url: str = DEFAULT_BASE_URL,
         api_key: str | None = None,
         params: GenerationParams | None = None,
+        extra_body: Mapping[str, Any] | None = None,
         timeout: float = 60.0,
         max_retries: int = 3,
         backoff_base: float = 0.5,
@@ -114,6 +116,7 @@ class OpenAICompatProvider:
         self._url = base_url.rstrip("/") + "/chat/completions"
         self._headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self.default_params = params or GenerationParams()
+        self._extra_body = dict(extra_body or {})
         self._max_retries = max_retries
         self._backoff_base = backoff_base
         self._backoff_max = backoff_max
@@ -196,7 +199,10 @@ class OpenAICompatProvider:
             payload["seed"] = params.seed
         if params.stop is not None:
             payload["stop"] = list(params.stop)
-        return payload
+        clashes = sorted(self._extra_body.keys() & payload.keys())
+        if clashes:
+            raise ProviderError(f"extra_body may not override request fields: {', '.join(clashes)}")
+        return {**payload, **self._extra_body}
 
     def _parse(self, response: httpx.Response, latency_ms: float) -> ModelOutput:
         try:
