@@ -74,4 +74,5 @@ def build_provider(config: ProviderConfig, env: Mapping[str, str] | None = None)
         base_url=config.base_url or DEFAULT_BASE_URL,
         api_key=api_key,
         params=config.params,
+        extra_body=config.extra_body,
     )

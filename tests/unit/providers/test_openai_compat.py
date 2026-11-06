@@ -420,3 +420,23 @@ def test_real_sleep_default_is_anyio() -> None:
     sleep: Callable[[float], Awaitable[None]] = provider._sleep  # pyright: ignore[reportPrivateUsage]
     assert sleep is anyio.sleep
     asyncio.run(provider.aclose())
+
+
+@respx.mock
+def test_extra_body_fields_are_sent_with_every_request() -> None:
+    route = respx.post(URL).respond(200, json=ok_body())
+    provider = OpenAICompatProvider(
+        "m", base_url=BASE, extra_body={"reasoning_effort": "none"}, sleep=Sleeps()
+    )
+    asyncio.run(provider.complete(request()))
+    sent = json.loads(route.calls.last.request.content)
+    assert sent["reasoning_effort"] == "none"
+    assert sent["model"] == "m"
+
+
+@respx.mock
+def test_extra_body_cannot_replace_a_field_the_adapter_sets() -> None:
+    respx.post(URL).respond(200, json=ok_body())
+    provider = OpenAICompatProvider("m", base_url=BASE, extra_body={"model": "other"})
+    with pytest.raises(ProviderError, match=r"may not override.*model"):
+        asyncio.run(provider.complete(request()))
