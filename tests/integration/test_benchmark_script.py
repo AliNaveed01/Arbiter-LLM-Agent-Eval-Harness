@@ -25,11 +25,18 @@ def load_script() -> ModuleType:
     return module
 
 
+class Closable(FakeProvider):
+    """A fake with the ``aclose`` a real provider has, which the script calls on its own."""
+
+    async def aclose(self) -> None:
+        return None
+
+
 def call(name: str, arguments: str) -> FakeResponse:
     return FakeResponse(tool_calls=(ToolCall(id="1", name=name, arguments=arguments),))
 
 
-def scripted_agent() -> FakeProvider:
+def scripted_agent() -> Closable:
     """Right on weather, wrong tool on currency, malformed on timers, silent on the rest."""
     suite = load_suite(DATA / "agent_suite.yaml")
     responses: dict[str, str | FakeResponse] = {}
@@ -44,7 +51,7 @@ def scripted_agent() -> FakeProvider:
             responses[prompt] = call("get_weather", '{"city": "x"}')
         else:
             responses[prompt] = call("set_timer", "{minutes: ten")
-    return FakeProvider(responses, name="scripted-agent", latency_ms=10.0)
+    return Closable(responses, name="scripted-agent", latency_ms=10.0)
 
 
 def scripted_judge(reply: str | None) -> FakeProvider:
@@ -59,7 +66,23 @@ def scripted_judge(reply: str | None) -> FakeProvider:
     return FakeProvider(verdicts, match="contains", name="scripted-judge")
 
 
-def run(judge: FakeProvider) -> dict[str, Any]:
+def scripted_loop() -> Closable:
+    """Takes the expected route on every task but one, where it stops after the first call."""
+    suite = load_suite(DATA / "agent_loop_suite.yaml")
+    responses: dict[str, str | FakeResponse | list[str | FakeResponse]] = {}
+    for case in suite.cases:
+        steps: list[str | FakeResponse] = []
+        expected: Any = case.metadata["expected_trajectory"]
+        if case.id == "rain-then-timer":
+            expected = expected[:1]
+        for item in expected:
+            steps.append(call(item["name"], json.dumps(item["arguments"])))
+        steps.append("Done.")
+        responses[case.input[0].content] = steps
+    return Closable(responses, name="scripted-loop", latency_ms=10.0)
+
+
+def run(judge: FakeProvider, **kwargs: Any) -> dict[str, Any]:
     script = load_script()
     return asyncio.run(
         script.run_model(
@@ -68,7 +91,9 @@ def run(judge: FakeProvider) -> dict[str, Any]:
             seed=42,
             max_tokens=256,
             agent_provider=scripted_agent(),
+            loop_provider=scripted_loop(),
             judge_provider=judge,
+            **kwargs,
         )
     )
 
@@ -120,3 +145,50 @@ def test_environment_reports_machine_and_ram() -> None:
     info = load_script().environment("not-a-real-model")
     assert info["machine"] and info["ram_gib"] > 0
     assert info["model_size"] == ""
+
+
+def test_loop_suite_is_consistent() -> None:
+    suite = load_suite(DATA / "agent_loop_suite.yaml")
+    assert len(suite.cases) == 8 and suite.agent is not None and suite.agent.max_steps == 5
+    assert [s.name for s in suite.scorers] == ["trajectory_match", "trajectory_budget"]
+    assert all("expected_trajectory" in c.metadata for c in suite.cases)
+
+
+def test_loop_metrics_score_the_route_not_just_the_answer() -> None:
+    loop = run(scripted_judge(None))["loop"]
+    assert (loop["cases"], loop["passed"]) == (8, 7)
+    assert loop["pass_rate"] == 7 / 8
+    assert loop["per_case"]["rain-then-timer"]["passed"] is False
+    assert loop["per_case"]["rain-then-timer"]["calls"] == ['get_weather {"city": "Oslo"}']
+    assert loop["per_case"]["no-tool-capital"]["calls"] == []
+    assert loop["mean_steps"] is not None and loop["mean_latency_ms"] is not None
+
+
+def test_thinking_off_is_sent_as_reasoning_effort_none(monkeypatch: Any) -> None:
+    script = load_script()
+    seen: list[Any] = []
+    providers: list[Any] = []
+    real = script.build_provider
+
+    def fake_build(config: Any) -> Any:
+        if config.type == "fake":  # the judge suite's fixed answers
+            return real(config)
+        seen.append(config.extra_body)
+        return providers[len(seen) - 1]
+
+    for mode, expected in (("on", {}), ("off", {"reasoning_effort": "none"})):
+        seen.clear()
+        providers[:] = [scripted_agent(), scripted_loop()]
+        monkeypatch.setattr(script, "build_provider", fake_build)
+        result = asyncio.run(
+            script.run_model(
+                "m",
+                base_url="http://unused",
+                seed=1,
+                max_tokens=8,
+                thinking=mode,
+                judge_provider=scripted_judge(None),
+            )
+        )
+        assert seen == [expected, expected]
+        assert result["thinking"] == mode

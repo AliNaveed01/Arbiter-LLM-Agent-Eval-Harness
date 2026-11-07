@@ -1,0 +1,96 @@
+# Multi-step tool use: the same three tools, but the runner feeds each tool result back and the
+# model keeps going until it answers. Scored on the route taken (trajectory_match, exact), and on
+# finishing within three calls (trajectory_budget). Tool results are scripted mocks, so the only
+# thing that varies between models is the model. The provider is supplied by run_benchmark.py.
+name: tool-loop
+description: Eight tasks needing zero to two tool calls, some of which depend on an earlier result.
+
+tools:
+  - name: get_weather
+    description: Get the current weather for a city.
+    parameters:
+      type: object
+      properties:
+        city: {type: string, description: The city name}
+      required: [city]
+  - name: convert_currency
+    description: Convert an amount of money from one currency to another.
+    parameters:
+      type: object
+      properties:
+        amount: {type: number}
+        from: {type: string, description: Source currency code, e.g. USD}
+        to: {type: string, description: Target currency code, e.g. EUR}
+      required: [amount, from, to]
+  - name: set_timer
+    description: Start a countdown timer.
+    parameters:
+      type: object
+      properties:
+        minutes: {type: integer, description: Length of the timer in minutes}
+      required: [minutes]
+
+tool_mocks:
+  - {tool: get_weather, arguments: {city: Paris}, result: "Cloudy, 14 C"}
+  - {tool: get_weather, arguments: {city: Tokyo}, result: "Light rain, 17 C"}
+  - {tool: get_weather, arguments: {city: Oslo}, result: "Rain, 4 C"}
+  - {tool: get_weather, arguments: {city: Lima}, result: "Sunny, 24 C"}
+  - {tool: get_weather, arguments: {city: Cairo}, result: "Sunny, 41 C"}
+  - {tool: convert_currency, arguments: {amount: 100, from: USD, to: EUR}, result: "100 USD = 92.00 EUR"}
+  - {tool: convert_currency, arguments: {amount: 250, from: GBP, to: JPY}, result: "250 GBP = 48125 JPY"}
+  - {tool: set_timer, result: "Timer started."}
+
+agent:
+  max_steps: 5
+
+scorers:
+  - name: trajectory_match
+    params: {mode: exact}
+  - name: trajectory_budget
+    params: {max_calls: 3}
+
+cases:
+  - id: weather-two-cities
+    input: "What is the weather in Paris and in Tokyo? Check both, Paris first."
+    metadata:
+      expected_trajectory:
+        - {name: get_weather, arguments: {city: Paris}}
+        - {name: get_weather, arguments: {city: Tokyo}}
+  - id: rain-then-timer
+    input: "Check the weather in Oslo. If it is raining there, set a 10 minute timer."
+    metadata:
+      expected_trajectory:
+        - {name: get_weather, arguments: {city: Oslo}}
+        - {name: set_timer, arguments: {minutes: 10}}
+  - id: sunny-no-timer
+    input: "Check the weather in Lima. If it is raining there, set a 10 minute timer."
+    metadata:
+      expected_trajectory:
+        - {name: get_weather, arguments: {city: Lima}}
+  - id: hot-then-timer
+    input: "Look up the weather in Cairo. If it is over 35 C, set a 15 minute timer."
+    metadata:
+      expected_trajectory:
+        - {name: get_weather, arguments: {city: Cairo}}
+        - {name: set_timer, arguments: {minutes: 15}}
+  - id: convert-and-report
+    input: "Convert 100 USD to EUR and tell me the result."
+    metadata:
+      expected_trajectory:
+        - {name: convert_currency, arguments: {amount: 100, from: USD, to: EUR}}
+  - id: convert-two
+    input: "Convert 100 USD to EUR, then convert 250 GBP to JPY."
+    metadata:
+      expected_trajectory:
+        - {name: convert_currency, arguments: {amount: 100, from: USD, to: EUR}}
+        - {name: convert_currency, arguments: {amount: 250, from: GBP, to: JPY}}
+  - id: timer-then-weather
+    input: "Set a 5 minute timer, then check the weather in Paris."
+    metadata:
+      expected_trajectory:
+        - {name: set_timer, arguments: {minutes: 5}}
+        - {name: get_weather, arguments: {city: Paris}}
+  - id: no-tool-capital
+    input: "What is the capital of France?"
+    metadata:
+      expected_trajectory: []
