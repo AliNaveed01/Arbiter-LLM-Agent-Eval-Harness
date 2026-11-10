@@ -29,6 +29,7 @@ dev = [
     "pre-commit",
     "types-pyyaml>=6.0.12.20261030",
     "respx>=0.23.1",
+    "matplotlib>=3.11.2",
 ]
 
 [build-system]
