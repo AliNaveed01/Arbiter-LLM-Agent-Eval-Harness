@@ -116,6 +116,31 @@ def draw(points: list[Point], out: Path) -> None:
             fontsize=9,
             color=INK,
         )
+    for p in points:
+        if p in drawn or p.variant not in variants:
+            continue
+        slot = variants.index(p.variant) - (len(variants) - 1) / 2
+        y = len(models) - 1 - models.index(p.model) + slot * spread
+        color, marker, _ = STYLES[p.variant]
+        ax.plot(
+            -0.45,
+            y,
+            marker,
+            markersize=9,
+            color=color,
+            markerfacecolor=SURFACE,
+            markeredgewidth=2,
+            zorder=3,
+        )
+        ax.annotate(
+            "kappa undefined: no valid verdicts",
+            (-0.45, y),
+            xytext=(10, 0),
+            textcoords="offset points",
+            va="center",
+            fontsize=9,
+            color=MUTED,
+        )
     ax.axvline(TRUSTED, color=MUTED, linewidth=1, linestyle=(0, (4, 3)), zorder=1)
     ax.axvline(0, color=GRID, linewidth=1, zorder=1)
     ax.text(
