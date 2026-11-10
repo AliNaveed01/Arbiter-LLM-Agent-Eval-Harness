@@ -1,0 +1,246 @@
+{
+  "model": "qwen3:0.6b",
+  "thinking": "on",
+  "agent": {
+    "cases": 12,
+    "passed": 9,
+    "pass_rate": 0.75,
+    "tool_cases": 9,
+    "tool_correct": 6,
+    "tool_call_accuracy": 0.6666666666666666,
+    "mean_latency_ms": 1012.6015590843357,
+    "outcomes": {
+      "no_call": 3,
+      "ok": 9
+    },
+    "per_case": {
+      "weather-paris": "no_call",
+      "weather-tokyo": "no_call",
+      "weather-lima": "no_call",
+      "currency-usd-eur": "ok",
+      "currency-gbp-jpy": "ok",
+      "currency-cad-usd": "ok",
+      "timer-ten": "ok",
+      "timer-forty-five": "ok",
+      "timer-two": "ok",
+      "no-tool-capital": "ok",
+      "no-tool-arithmetic": "ok",
+      "no-tool-greeting": "ok"
+    }
+  },
+  "loop": {
+    "cases": 8,
+    "passed": 7,
+    "pass_rate": 0.875,
+    "mean_steps": 1.75,
+    "mean_latency_ms": 5595.1281667585135,
+    "per_case": {
+      "weather-two-cities": {
+        "passed": true,
+        "error": null,
+        "calls": [
+          "get_weather {\"city\":\"Paris\"}",
+          "get_weather {\"city\":\"Tokyo\"}"
+        ],
+        "stop_reason": "final",
+        "final_text": "The weather in Paris is **cloudy** with a temperature of **14°C**. In Tokyo, it is **light rain** with a temperature of **17°C**."
+      },
+      "rain-then-timer": {
+        "passed": true,
+        "error": null,
+        "calls": [
+          "get_weather {\"city\":\"Oslo\"}",
+          "set_timer {\"minutes\":10}"
+        ],
+        "stop_reason": "final",
+        "final_text": "The timer in Oslo is set to 10 minutes. Let me know if you need further assistance!"
+      },
+      "sunny-no-timer": {
+        "passed": false,
+        "error": null,
+        "calls": [],
+        "stop_reason": "final",
+        "final_text": ""
+      },
+      "hot-then-timer": {
+        "passed": true,
+        "error": null,
+        "calls": [
+          "get_weather {\"city\":\"Cairo\"}",
+          "set_timer {\"minutes\":15}"
+        ],
+        "stop_reason": "final",
+        "final_text": "The weather in Cairo is sunny with a temperature of 41°C. The timer has been set to 15 minutes. Let me know if you need further assistance!"
+      },
+      "convert-and-report": {
+        "passed": true,
+        "error": null,
+        "calls": [
+          "convert_currency {\"amount\":100,\"from\":\"USD\",\"to\":\"EUR\"}"
+        ],
+        "stop_reason": "final",
+        "final_text": "100 USD = 92.00 EUR."
+      },
+      "convert-two": {
+        "passed": true,
+        "error": null,
+        "calls": [
+          "convert_currency {\"amount\":100,\"from\":\"USD\",\"to\":\"EUR\"}",
+          "convert_currency {\"amount\":250,\"from\":\"GBP\",\"to\":\"JPY\"}"
+        ],
+        "stop_reason": "final",
+        "final_text": "100 USD = 92.00 EUR  \n250 GBP = 48,125 JPY"
+      },
+      "timer-then-weather": {
+        "passed": true,
+        "error": null,
+        "calls": [
+          "set_timer {\"minutes\":5}",
+          "get_weather {\"city\":\"Paris\"}"
+        ],
+        "stop_reason": "final",
+        "final_text": "The timer started successfully in 5 minutes. The weather in Paris is **Cloudy, 14°C**. Let me know if you need anything else! 😊"
+      },
+      "no-tool-capital": {
+        "passed": true,
+        "error": null,
+        "calls": [],
+        "stop_reason": "final",
+        "final_text": "The capital of France is Paris. However, I don't have access to tools that provide geographical or historical information about countries."
+      }
+    }
+  },
+  "judge": {
+    "cases": 30,
+    "judged": 30,
+    "problems": {},
+    "kappa": 0.2666666666666666,
+    "kappa_ci": [
+      -0.06666666666666665,
+      0.6
+    ],
+    "accuracy": 0.6333333333333333,
+    "confusion": [
+      [
+        10,
+        5
+      ],
+      [
+        6,
+        9
+      ]
+    ]
+  },
+  "raw_agent_outputs": {
+    "weather-paris": {
+      "text": "",
+      "tool_calls": [],
+      "error": null
+    },
+    "weather-tokyo": {
+      "text": "",
+      "tool_calls": [],
+      "error": null
+    },
+    "weather-lima": {
+      "text": "",
+      "tool_calls": [],
+      "error": null
+    },
+    "currency-usd-eur": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_jvokmx9q",
+          "name": "convert_currency",
+          "arguments": "{\"to\":\"EUR\",\"amount\":100,\"from\":\"USD\"}"
+        }
+      ],
+      "error": null
+    },
+    "currency-gbp-jpy": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_9mlk5ob7",
+          "name": "convert_currency",
+          "arguments": "{\"amount\":250,\"from\":\"GBP\",\"to\":\"JPY\"}"
+        }
+      ],
+      "error": null
+    },
+    "currency-cad-usd": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_6lm94ejb",
+          "name": "convert_currency",
+          "arguments": "{\"amount\":75,\"from\":\"CAD\",\"to\":\"USD\"}"
+        }
+      ],
+      "error": null
+    },
+    "timer-ten": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_yhbiu9a5",
+          "name": "set_timer",
+          "arguments": "{\"minutes\":10}"
+        }
+      ],
+      "error": null
+    },
+    "timer-forty-five": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_e16syy6x",
+          "name": "set_timer",
+          "arguments": "{\"minutes\":45}"
+        }
+      ],
+      "error": null
+    },
+    "timer-two": {
+      "text": "",
+      "tool_calls": [
+        {
+          "id": "call_e6vxijxu",
+          "name": "set_timer",
+          "arguments": "{\"minutes\":2}"
+        }
+      ],
+      "error": null
+    },
+    "no-tool-capital": {
+      "text": "The capital of France is Paris. However, I don't have access to tools that provide geographical or historical information about countries.",
+      "tool_calls": [],
+      "error": null
+    },
+    "no-tool-arithmetic": {
+      "text": "I don't have a tool to calculate multiplication. Let me know if you need help with something else!",
+      "tool_calls": [],
+      "error": null
+    },
+    "no-tool-greeting": {
+      "text": "Hello! How are you today? 😊 Let me know if there's anything you need!",
+      "tool_calls": [],
+      "error": null
+    }
+  },
+  "environment": {
+    "machine": "arm64",
+    "chip": "Apple M2 Pro",
+    "ram_gib": 16,
+    "ollama_version": "ollama version is 0.40.14",
+    "model_size": "522 MB",
+    "python": "3.12.13"
+  },
+  "settings": {
+    "temperature": 0.0,
+    "seed": 42,
+    "max_tokens": 2048,
+    "extra_body": {}
+  }
+}
