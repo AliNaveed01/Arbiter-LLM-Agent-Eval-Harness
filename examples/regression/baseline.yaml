@@ -1,0 +1,62 @@
+# Two runs of one suite for `agentgauge compare`. Only the scripted answers differ.
+# See docs/regression.md.
+name: capitals
+description: Twelve capital-city questions.
+
+provider:
+  type: fake
+  model: baseline-model
+  responses:
+    "What is the capital of France?": "Paris"
+    "What is the capital of Japan?": "Tokyo"
+    "What is the capital of Italy?": "Rome"
+    "What is the capital of Spain?": "Madrid"
+    "What is the capital of Canada?": "Ottawa"
+    "What is the capital of Egypt?": "Cairo"
+    "What is the capital of Peru?": "Lima"
+    "What is the capital of Norway?": "Oslo"
+    "What is the capital of Kenya?": "Nairobi"
+    "What is the capital of Chile?": "Santiago"
+    "What is the capital of Poland?": "Warsaw"
+    "What is the capital of Greece?": "Athens"
+
+scorers:
+  - exact_match
+
+cases:
+  - id: france
+    input: "What is the capital of France?"
+    expected: "Paris"
+  - id: japan
+    input: "What is the capital of Japan?"
+    expected: "Tokyo"
+  - id: italy
+    input: "What is the capital of Italy?"
+    expected: "Rome"
+  - id: spain
+    input: "What is the capital of Spain?"
+    expected: "Madrid"
+  - id: canada
+    input: "What is the capital of Canada?"
+    expected: "Ottawa"
+  - id: egypt
+    input: "What is the capital of Egypt?"
+    expected: "Cairo"
+  - id: peru
+    input: "What is the capital of Peru?"
+    expected: "Lima"
+  - id: norway
+    input: "What is the capital of Norway?"
+    expected: "Oslo"
+  - id: kenya
+    input: "What is the capital of Kenya?"
+    expected: "Nairobi"
+  - id: chile
+    input: "What is the capital of Chile?"
+    expected: "Santiago"
+  - id: poland
+    input: "What is the capital of Poland?"
+    expected: "Warsaw"
+  - id: greece
+    input: "What is the capital of Greece?"
+    expected: "Athens"
