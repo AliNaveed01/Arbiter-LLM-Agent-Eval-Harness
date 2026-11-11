@@ -8,8 +8,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import typer.main
 import yaml
-from typer.testing import CliRunner
 
 from agentgauge.cli import app
 from agentgauge.core import CaseResult, RunResult, Score
@@ -43,9 +43,9 @@ def test_inputs_reach_the_script_through_environment_variables_not_interpolation
 def test_every_option_the_action_passes_exists_on_the_command() -> None:
     options = set(re.findall(r"(--[a-z][a-z-]*)", compare_step()["run"]))
     assert {"--db", "--alpha", "--max-drop", "--format", "--output", "--suite"} <= options
-    help_text = CliRunner(env={"COLUMNS": "200"}).invoke(app, ["compare", "--help"]).output
-    for option in options:
-        assert option in help_text, option
+    group: Any = typer.main.get_command(app)
+    declared = {opt for param in group.commands["compare"].params for opt in param.opts}
+    assert options <= declared, sorted(options - declared)
 
 
 def test_example_workflow_runs_both_branches_then_the_action() -> None:
