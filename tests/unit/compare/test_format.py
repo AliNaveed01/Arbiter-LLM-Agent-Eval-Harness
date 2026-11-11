@@ -2,6 +2,7 @@ import json
 from datetime import UTC, datetime
 
 from agentgauge.compare import compare_runs, to_json, to_markdown
+from agentgauge.compare.format import latency_change
 from agentgauge.core.models import CaseResult, RunResult, Score
 
 
@@ -81,3 +82,10 @@ def test_json_carries_the_whole_comparison() -> None:
     assert len(data["regressed"]) == 10
     assert data["scorers"][0]["scorer"] == "exact_match"
     assert data["delta_ci"][1] < 0
+
+
+def test_latency_change_is_whole_milliseconds_and_never_negative_zero() -> None:
+    assert latency_change(10.0, 20.0) == "+10 ms"
+    assert latency_change(20.0, 10.0) == "-10 ms"
+    assert latency_change(0.4, 0.0) == "+0 ms"
+    assert latency_change(0.0, 0.4) == "+0 ms"

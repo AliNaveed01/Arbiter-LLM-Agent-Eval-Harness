@@ -17,6 +17,7 @@ from agentgauge.compare.format import (
     HEADLINES,
     LISTED_CASES,
     interval,
+    latency_change,
     percent,
     points,
     rule_sentence,
@@ -318,7 +319,7 @@ def render_comparison(console: Console, c: Comparison) -> None:
             Text("mean latency"),
             Text(f"{c.baseline_latency_ms:.0f} ms"),
             Text(f"{c.candidate_latency_ms:.0f} ms"),
-            Text(f"{c.candidate_latency_ms - c.baseline_latency_ms:+.0f} ms"),
+            Text(latency_change(c.baseline_latency_ms, c.candidate_latency_ms)),
         )
     console.print(table)
     for line in (_case_line("Regressed", c.regressed), _case_line("Improved", c.improved)):
