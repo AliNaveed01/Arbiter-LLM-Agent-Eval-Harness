@@ -1,0 +1,44 @@
+# Fail a pull request only when the agent got significantly worse than the base branch.
+# Copy to .github/workflows/. It runs the same suite on the base and on the pull request,
+# stores both runs in one database, then compares them. See docs/regression.md.
+name: agent regression
+
+on:
+  pull_request:
+
+jobs:
+  compare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+      - uses: actions/checkout@v4
+        with:
+          path: head
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install agentgauge-eval
+
+      # Same suite, same model settings, so only your change differs. Use temperature 0 and a
+      # seed in the suite's provider block to keep noise down.
+      - name: Run the suite on the base branch
+        working-directory: base
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: agentgauge run evals/suite.yaml --db "$GITHUB_WORKSPACE/runs.db"
+      - name: Run the suite on the pull request
+        working-directory: head
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: agentgauge run evals/suite.yaml --db "$GITHUB_WORKSPACE/runs.db"
+
+      # Pin to a release tag that contains action.yml once one exists; main is for trying it.
+      - uses: AliNaveed01/agentgauge@main
+        with:
+          baseline: previous
+          candidate: latest
+          db: runs.db
+          max-drop: "0.02" # accept a significant drop of up to 2 points
