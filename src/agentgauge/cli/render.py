@@ -12,6 +12,16 @@ from rich.table import Table
 from rich.text import Text
 
 from agentgauge.calibration import CalibrationReport
+from agentgauge.compare import Comparison
+from agentgauge.compare.format import (
+    HEADLINES,
+    LISTED_CASES,
+    interval,
+    percent,
+    points,
+    rule_sentence,
+    summary_sentence,
+)
 from agentgauge.core.models import CaseResult, RunResult, Trajectory
 from agentgauge.storage import RunSummary
 
@@ -258,3 +268,67 @@ def render_calibration(
     warning = kappa_warning(report)
     if warning is not None:
         console.print(Text("Warning: ", style="bold yellow") + Text(warning, style="yellow"))
+
+
+_VERDICT_STYLE = {"regression": "bold red", "improvement": "bold green", "unchanged": "bold"}
+
+
+def _case_line(label: str, case_ids: tuple[str, ...]) -> Text | None:
+    if not case_ids:
+        return None
+    shown = ", ".join(case_ids[:LISTED_CASES])
+    extra = len(case_ids) - LISTED_CASES
+    return Text(f"{label} ({len(case_ids)}): {shown}" + (f" and {extra} more" if extra > 0 else ""))
+
+
+def render_comparison(console: Console, c: Comparison) -> None:
+    """Print a comparison: verdict, the change in words, a metrics table, and what moved."""
+    console.print(
+        Text.assemble(
+            ("agentgauge compare: ", "bold"),
+            (HEADLINES[c.verdict], _VERDICT_STYLE[c.verdict]),
+            f"  suite {c.suite_name}",
+        )
+    )
+    console.print(
+        Text(
+            f"baseline {c.baseline_id[:ID_WIDTH]} ({c.baseline_model})  "
+            f"candidate {c.candidate_id[:ID_WIDTH]} ({c.candidate_model})"
+        )
+    )
+    console.print(Text(summary_sentence(c)))
+    table = Table()
+    for heading in ("Metric", "Baseline", "Candidate", "Change (95% interval)"):
+        table.add_column(heading)
+    table.add_row(
+        Text("pass rate"),
+        Text(percent(c.baseline_pass_rate)),
+        Text(percent(c.candidate_pass_rate)),
+        Text(f"{points(c.delta)} ({interval(*c.delta_ci)})"),
+    )
+    for s in c.scorers:
+        table.add_row(
+            Text(f"{s.scorer} mean"),
+            Text(f"{s.baseline_mean:.3f}"),
+            Text(f"{s.candidate_mean:.3f}"),
+            Text(f"{s.delta:+.3f} ({interval(*s.delta_ci, scale=1.0, digits=3)})"),
+        )
+    if c.baseline_latency_ms is not None and c.candidate_latency_ms is not None:
+        table.add_row(
+            Text("mean latency"),
+            Text(f"{c.baseline_latency_ms:.0f} ms"),
+            Text(f"{c.candidate_latency_ms:.0f} ms"),
+            Text(f"{c.candidate_latency_ms - c.baseline_latency_ms:+.0f} ms"),
+        )
+    console.print(table)
+    for line in (_case_line("Regressed", c.regressed), _case_line("Improved", c.improved)):
+        if line is not None:
+            console.print(line)
+    for warning in c.warnings:
+        console.print(Text("Warning: ", style="bold yellow") + Text(warning, style="yellow"))
+    for label, left_out in (("baseline", c.only_in_baseline), ("candidate", c.only_in_candidate)):
+        if left_out:
+            console.print(
+                Text(f"{len(left_out)} case(s) only in the {label} were left out.", style="dim")
+            )
+    console.print(Text(rule_sentence(c), style="dim"))

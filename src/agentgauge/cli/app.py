@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, NoReturn
 
@@ -15,10 +16,12 @@ from agentgauge.calibration import LabelLoadError, load_labels
 from agentgauge.calibration import calibrate as compute_calibration
 from agentgauge.cli.render import (
     render_calibration,
+    render_comparison,
     render_run,
     render_run_list,
     render_trajectories,
 )
+from agentgauge.compare import CompareError, compare_runs, select_run, to_json, to_markdown
 from agentgauge.core import ProviderConfig, RunResult, Suite, SuiteLoadError, load_suite
 from agentgauge.judge import Scale
 from agentgauge.otel import OtelImportError, load_traces, score_imported
@@ -29,6 +32,7 @@ from agentgauge.storage import RunStore, StorageError
 
 DEFAULT_DB = Path(".agentgauge/runs.db")
 CONFIG_ERROR = 2
+REGRESSION = 1
 
 app = typer.Typer(
     name="agentgauge",
@@ -344,3 +348,82 @@ def import_otel(
     if missing:
         notes.append(f"{missing} suite case(s) had no trace")
     console.print("; ".join(notes))
+
+
+class OutputFormat(StrEnum):
+    TABLE = "table"
+    MARKDOWN = "markdown"
+    JSON = "json"
+
+
+@app.command()
+def compare(
+    baseline: Annotated[
+        str, typer.Argument(help="Baseline run: an id, an id prefix, 'latest' or 'previous'.")
+    ],
+    candidate: Annotated[
+        str, typer.Argument(help="Candidate run: an id, an id prefix, 'latest' or 'previous'.")
+    ],
+    db: DbOption = DEFAULT_DB,
+    suite: Annotated[
+        str | None,
+        typer.Option(help="Resolve 'latest' and 'previous' among the runs of this suite."),
+    ] = None,
+    alpha: Annotated[float, typer.Option(help="Significance level, between 0 and 1.")] = 0.05,
+    max_drop: Annotated[
+        float,
+        typer.Option(
+            "--max-drop", help="Pass-rate drop you accept even when significant (0.02 = 2 points)."
+        ),
+    ] = 0.0,
+    resamples: Annotated[
+        int, typer.Option(min=100, help="Bootstrap resamples for the intervals.")
+    ] = 2000,
+    seed: Annotated[int, typer.Option(help="Seed for the bootstrap, so reports repeat.")] = 0,
+    output_format: Annotated[
+        OutputFormat, typer.Option("--format", help="table, markdown or json.")
+    ] = OutputFormat.TABLE,
+    output: Annotated[
+        Path | None,
+        typer.Option(help="Write the markdown or JSON report here instead of printing it."),
+    ] = None,
+) -> None:
+    """Compare a candidate run with a baseline run and flag a significant regression.
+
+    Cases are paired by id. The candidate is a regression when its pass rate is lower with
+    statistical significance (exact McNemar test below --alpha) and by more than --max-drop.
+
+    Exits 0 when there is no significant regression, 1 on a significant regression, and 2
+    on configuration problems (unknown run, no shared cases, bad options, unusable database).
+    """
+    if output is not None and output_format is OutputFormat.TABLE:
+        _fail("--output needs --format markdown or --format json")
+    try:
+        store = RunStore(db)
+    except StorageError as exc:
+        _fail(str(exc))
+    with store:
+        try:
+            base_run = select_run(store, baseline, suite=suite)
+            cand_run = select_run(store, candidate, suite=suite)
+            comparison = compare_runs(
+                base_run, cand_run, alpha=alpha, max_drop=max_drop, resamples=resamples, seed=seed
+            )
+        except (StorageError, CompareError, ValueError) as exc:
+            _fail(str(exc))
+    if output_format is OutputFormat.TABLE:
+        render_comparison(Console(), comparison)
+    else:
+        text = (
+            to_markdown(comparison)
+            if output_format is OutputFormat.MARKDOWN
+            else to_json(comparison)
+        )
+        if output is None:
+            typer.echo(text, nl=False)
+        else:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(text, encoding="utf-8")
+            typer.echo(f"{comparison.verdict}: wrote {output}")
+    if comparison.verdict == "regression":
+        raise typer.Exit(REGRESSION)

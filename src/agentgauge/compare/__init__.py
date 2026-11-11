@@ -3,6 +3,7 @@
 from agentgauge.compare.format import to_json, to_markdown
 from agentgauge.compare.pairing import CasePair, CompareError, Pairing, pair_runs
 from agentgauge.compare.report import Comparison, ScorerDelta, Verdict, compare_runs
+from agentgauge.compare.select import select_run
 from agentgauge.compare.stats import mcnemar_exact, paired_bootstrap_ci
 
 __all__ = [
@@ -16,6 +17,7 @@ __all__ = [
     "mcnemar_exact",
     "pair_runs",
     "paired_bootstrap_ci",
+    "select_run",
     "to_json",
     "to_markdown",
 ]
