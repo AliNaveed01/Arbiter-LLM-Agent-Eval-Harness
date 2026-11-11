@@ -23,6 +23,11 @@ def points(value: float) -> str:
     return f"{value * 100:+.1f} points"
 
 
+def latency_change(baseline_ms: float, candidate_ms: float) -> str:
+    """The latency change in whole milliseconds, signed, never ``-0``."""
+    return f"{round(candidate_ms - baseline_ms):+d} ms"
+
+
 def interval(
     low: float, high: float, *, scale: float = 100.0, digits: int = 1, unit: str = ""
 ) -> str:
@@ -87,10 +92,9 @@ def to_markdown(c: Comparison) -> str:
             f"{s.delta:+.3f} ({interval(*s.delta_ci, scale=1.0, digits=3)}) |"
         )
     if c.baseline_latency_ms is not None and c.candidate_latency_ms is not None:
-        change = c.candidate_latency_ms - c.baseline_latency_ms
         lines.append(
             f"| Mean latency | {c.baseline_latency_ms:.0f} ms | {c.candidate_latency_ms:.0f} ms | "
-            f"{change:+.0f} ms |"
+            f"{latency_change(c.baseline_latency_ms, c.candidate_latency_ms)} |"
         )
     lines.append("")
     lines += _case_list("Regressed", c.regressed)
