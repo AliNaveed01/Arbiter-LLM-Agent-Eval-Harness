@@ -4,7 +4,7 @@ agentgauge is an open-source regression-testing harness for LLM agents. It answe
 
 **Status: pre-alpha**
 
-**What works today:** define a suite of test cases in YAML or JSONL, run it against any OpenAI-compatible model with deterministic scorers, and store and inspect the runs. **Not built yet:** the LLM judge and its calibration, trajectory scoring, statistical run comparison and the GitHub Action.
+**What works today:** define a suite of test cases in YAML or JSONL, run it against any OpenAI-compatible model, score it with deterministic scorers, an LLM judge calibrated against human labels, and tool-call trajectory scorers, store and inspect the runs, import OpenTelemetry traces, and compare two runs with a significance test, locally or as a GitHub Action. **Not built yet:** the HTML report, the docs site and a worked example on a real agent (v1.0).
 
 ## Quickstart
 
@@ -107,6 +107,18 @@ uv run agentgauge import-otel examples/otel/traces.json --suite examples/otel/su
 
 See [docs/trajectories.md](docs/trajectories.md).
 
+## Comparing runs
+
+`agentgauge compare` pairs two runs by case, tests whether the pass rate really dropped (exact McNemar test), and exits 1 only on a significant regression, so it can gate a pull request:
+
+```bash
+uv run agentgauge run examples/regression/baseline.yaml
+uv run agentgauge run examples/regression/candidate.yaml
+uv run agentgauge compare previous latest
+```
+
+See [docs/regression.md](docs/regression.md) for how to read it, how many cases you need, and the GitHub Action ([`action.yml`](action.yml), [example workflow](examples/github-action/regression.yml)).
+
 ## Running against a real model
 
 Command-line options override the suite's `provider` block, so you can point the example at a real model:
@@ -120,7 +132,7 @@ For a local server, add `--base-url http://localhost:8000/v1`; no key is needed.
 
 ## Exit codes
 
-`run` exits 0 whenever the run completes, even if cases fail or error: those are shown in the table. It exits 2 for configuration problems (unreadable or invalid suite, unknown scorer, bad provider options, a missing API key variable, an unusable database). `runs show` exits 1 for an unknown or ambiguous run id.
+`run` exits 0 whenever the run completes, even if cases fail or error: those are shown in the table. It exits 2 for configuration problems (unreadable or invalid suite, unknown scorer, bad provider options, a missing API key variable, an unusable database). `runs show` exits 1 for an unknown or ambiguous run id. `calibrate --fail-under` exits 1 when kappa is below the threshold. `compare` exits 0 when there is no significant regression, 1 on a significant regression, and 2 when the comparison cannot be made (unknown or ambiguous run, no shared cases, bad options, unusable database).
 
 ## Contributing
 
