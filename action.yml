@@ -1,0 +1,95 @@
+name: agentgauge compare
+description: >-
+  Compare two stored agentgauge runs and fail the job only on a statistically significant
+  regression in pass rate.
+author: AliNaveed01
+branding:
+  icon: activity
+  color: blue
+
+inputs:
+  baseline:
+    description: Baseline run - an id, an id prefix, "latest" or "previous".
+    required: true
+  candidate:
+    description: Candidate run - an id, an id prefix, "latest" or "previous".
+    required: true
+  db:
+    description: Path of the run database both runs are stored in.
+    default: .agentgauge/runs.db
+  suite:
+    description: Resolve "latest" and "previous" among the runs of this suite.
+    default: ""
+  alpha:
+    description: Significance level for the exact McNemar test.
+    default: "0.05"
+  max-drop:
+    description: Pass-rate drop to accept even when significant, as a fraction (0.02 = 2 points).
+    default: "0"
+  resamples:
+    description: Bootstrap resamples for the confidence intervals.
+    default: "2000"
+  seed:
+    description: Seed for the bootstrap, so the report repeats.
+    default: "0"
+  version:
+    description: agentgauge-eval version to install, such as 0.4.0. Empty installs the latest.
+    default: ""
+  python-version:
+    description: Python version to run agentgauge with.
+    default: "3.12"
+
+outputs:
+  exit-code:
+    description: "agentgauge compare's exit code: 0 no regression, 1 regression, 2 could not compare."
+    value: ${{ steps.compare.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install agentgauge
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        spec="agentgauge-eval"
+        if [ -n "$VERSION" ]; then spec="agentgauge-eval==$VERSION"; fi
+        python -m pip install --quiet "$spec"
+
+    - name: Compare runs
+      id: compare
+      shell: bash
+      env:
+        BASELINE: ${{ inputs.baseline }}
+        CANDIDATE: ${{ inputs.candidate }}
+        DB: ${{ inputs.db }}
+        SUITE: ${{ inputs.suite }}
+        ALPHA: ${{ inputs.alpha }}
+        MAX_DROP: ${{ inputs.max-drop }}
+        RESAMPLES: ${{ inputs.resamples }}
+        SEED: ${{ inputs.seed }}
+      run: |
+        report="${RUNNER_TEMP:-/tmp}/agentgauge-compare.md"
+        rm -f "$report"
+        args=(compare "$BASELINE" "$CANDIDATE" --db "$DB" --alpha "$ALPHA" --max-drop "$MAX_DROP"
+          --resamples "$RESAMPLES" --seed "$SEED" --format markdown --output "$report")
+        if [ -n "$SUITE" ]; then args+=(--suite "$SUITE"); fi
+        set +e
+        agentgauge "${args[@]}"
+        code=$?
+        set -e
+        if [ -f "$report" ]; then
+          cat "$report"
+          if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY"; fi
+        fi
+        if [ -n "${GITHUB_OUTPUT:-}" ]; then echo "exit-code=$code" >> "$GITHUB_OUTPUT"; fi
+        if [ "$code" -eq 1 ]; then
+          echo "::error title=agentgauge::significant regression, see the job summary"
+        elif [ "$code" -ne 0 ]; then
+          echo "::error title=agentgauge::the runs could not be compared (exit $code)"
+        fi
+        exit "$code"
