@@ -57,7 +57,15 @@ pre{{margin:.25rem 0 .75rem;padding:.6rem .75rem;background:var(--raised);border
 .label{{color:var(--muted);font-size:.8rem;font-weight:600;text-transform:uppercase;
   letter-spacing:.04em;margin-top:.75rem}}
 svg text{{fill:var(--ink)}}
-svg .axis{{stroke:var(--line)}}
+svg .axis{{stroke:var(--muted);stroke-width:1}}
+svg .zero{{stroke:var(--ink);stroke-width:1;stroke-dasharray:3 3}}
+svg .whisker{{stroke-width:3;stroke-linecap:round}}
+svg .mark-fail{{stroke:var(--bad);fill:var(--bad)}}
+svg .mark-pass{{stroke:var(--good);fill:var(--good)}}
+svg .mark-flat{{stroke:var(--accent);fill:var(--accent)}}
+svg .dot{{stroke:var(--surface);stroke-width:2}}
+figure.chart{{margin:1rem 0}}
+figure.chart figcaption{{font-size:.85rem}}
 @media print{{
   body{{background:#fff;color:#000}}
   main{{max-width:none;padding:0}}

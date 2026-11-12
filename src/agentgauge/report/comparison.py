@@ -16,6 +16,7 @@ from agentgauge.compare.format import (
     rule_sentence,
     summary_sentence,
 )
+from agentgauge.report.chart import change_chart
 from agentgauge.report.html import Markup, join, tag
 
 _VERDICT = {
@@ -109,6 +110,7 @@ def comparison_section(c: Comparison, anchors: Mapping[str, int] | None = None) 
             class_="muted",
         ),
         tag("p", summary_sentence(c)),
+        change_chart(c),
         table,
         _case_list("Regressed", c.regressed, links),
         _case_list("Improved", c.improved, links),
