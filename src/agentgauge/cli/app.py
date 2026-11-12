@@ -462,11 +462,21 @@ def report(
     expand: Annotated[
         bool, typer.Option("--expand", help="Open every case, which suits printing.")
     ] = False,
+    baseline: Annotated[
+        str | None,
+        typer.Option(help="Also compare RUN with this run (id, prefix, 'latest' or 'previous')."),
+    ] = None,
+    alpha: AlphaOption = 0.05,
+    max_drop: MaxDropOption = 0.0,
+    resamples: ResamplesOption = 2000,
+    seed: SeedOption = 0,
 ) -> None:
     """Write a self-contained HTML report of a stored run.
 
-    The file needs no network and contains no scripts. Exits 2 for an unknown or ambiguous
-    run, or an unusable database.
+    The file needs no network and contains no scripts. With --baseline it also holds the
+    comparison that `agentgauge compare` makes, but a regression does not change the exit
+    code: the report is for reading, `compare` is the gate. Exits 2 for an unknown or
+    ambiguous run, runs that cannot be compared, or an unusable database.
     """
     try:
         store = RunStore(db)
@@ -475,9 +485,23 @@ def report(
     with store:
         try:
             run = select_run(store, run_id, suite=suite)
-        except (StorageError, CompareError) as exc:
+            comparison = None
+            if baseline is not None:
+                comparison = compare_runs(
+                    select_run(store, baseline, suite=suite),
+                    run,
+                    alpha=alpha,
+                    max_drop=max_drop,
+                    resamples=resamples,
+                    seed=seed,
+                )
+        except (StorageError, CompareError, ValueError) as exc:
             _fail(str(exc))
     target = output or Path(f"agentgauge-report-{run.run_id[:8]}.html")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(render_run_report(run, theme=theme.value, expand=expand), encoding="utf-8")
-    typer.echo(f"wrote {target}")
+    target.write_text(
+        render_run_report(run, theme=theme.value, expand=expand, comparison=comparison),
+        encoding="utf-8",
+    )
+    verdict = f" ({comparison.verdict})" if comparison is not None else ""
+    typer.echo(f"wrote {target}{verdict}")

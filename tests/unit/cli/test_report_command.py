@@ -110,3 +110,76 @@ def test_an_ambiguous_prefix_and_a_broken_database_exit_2(tmp_path: Path) -> Non
     broken = tmp_path / "dir"
     broken.mkdir()
     assert runner.invoke(app, ["report", "a", "--db", str(broken)]).exit_code == 2
+
+
+def run_with(run_id: str, passes: list[bool], minutes: int = 0) -> RunResult:
+    return RunResult(
+        run_id=run_id,
+        suite_name="demo",
+        model="m",
+        started_at=T0 + timedelta(minutes=minutes),
+        results=tuple(
+            CaseResult(
+                case_id=f"c{i}",
+                scores=(Score(scorer="exact_match", value=float(ok), passed=ok),),
+            )
+            for i, ok in enumerate(passes)
+        ),
+    )
+
+
+def test_baseline_adds_the_comparison_and_never_changes_the_exit_code(tmp_path: Path) -> None:
+    db = stored(
+        tmp_path,
+        run_with("aaaa1111", [True] * 30),
+        run_with("bbbb2222", [False] * 10 + [True] * 20, minutes=5),
+    )
+    target = tmp_path / "r.html"
+    result = runner.invoke(
+        app, ["report", "bbbb", "--baseline", "aaaa", "--db", str(db), "--output", str(target)]
+    )
+    assert result.exit_code == 0, result.output  # a regression is shown, not enforced
+    assert f"wrote {target} (regression)" in result.output
+    html = target.read_text()
+    assert "<h2>Comparison</h2>" in html and "✗ REGRESSION" in html and "<svg" in html
+    gate = runner.invoke(app, ["compare", "aaaa", "bbbb", "--db", str(db)])
+    assert gate.exit_code == 1
+
+
+def test_baseline_accepts_previous_and_the_comparison_options(tmp_path: Path) -> None:
+    db = stored(
+        tmp_path,
+        run_with("aaaa1111", [True] * 30),
+        run_with("bbbb2222", [False] * 10 + [True] * 20, minutes=5),
+    )
+    target = tmp_path / "r.html"
+    args = ["report", "latest", "--baseline", "previous", "--db", str(db), "--output", str(target)]
+    assert "(regression)" in runner.invoke(app, args).output
+    tolerant = runner.invoke(app, [*args, "--max-drop", "0.5"])
+    assert "(unchanged)" in tolerant.output and "No significant change" in target.read_text()
+
+
+def test_a_report_without_baseline_has_no_comparison(tmp_path: Path) -> None:
+    db = stored(tmp_path, run_with("aaaa1111", [True] * 3))
+    target = tmp_path / "r.html"
+    runner.invoke(app, ["report", "aaaa", "--db", str(db), "--output", str(target)])
+    assert "<h2>Comparison</h2>" not in target.read_text()
+
+
+def test_comparison_problems_exit_2(tmp_path: Path) -> None:
+    other = RunResult(
+        run_id="cccc3333",
+        suite_name="demo",
+        model="m",
+        started_at=T0 + timedelta(minutes=9),
+        results=(CaseResult(case_id="different"),),
+    )
+    db = stored(tmp_path, run_with("aaaa1111", [True] * 3), other)
+    cases = [
+        (["report", "aaaa", "--baseline", "nope"], "no run matches"),
+        (["report", "aaaa", "--baseline", "cccc"], "share no case ids"),
+        (["report", "aaaa", "--baseline", "aaaa", "--alpha", "2"], "alpha"),
+    ]
+    for args, message in cases:
+        result = runner.invoke(app, [*args, "--db", str(db)])
+        assert result.exit_code == 2 and message in result.output, (args, result.output)
