@@ -51,6 +51,7 @@ details.case{{border:1px solid var(--line);border-radius:8px;margin:.5rem 0}}
 details.case>summary{{cursor:pointer;padding:.5rem .75rem;list-style-position:inside}}
 details.case[open]>summary{{border-bottom:1px solid var(--line)}}
 .body{{padding:.25rem .75rem .75rem}}
+.step{{border-left:3px solid var(--line);padding-left:.75rem;margin:.5rem 0}}
 pre{{margin:.25rem 0 .75rem;padding:.6rem .75rem;background:var(--raised);border-radius:6px;
   white-space:pre-wrap;overflow-wrap:anywhere;max-height:24rem;overflow:auto}}
 .label{{color:var(--muted);font-size:.8rem;font-weight:600;text-transform:uppercase;

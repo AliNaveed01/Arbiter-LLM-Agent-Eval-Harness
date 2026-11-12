@@ -1,5 +1,11 @@
-from agentgauge.core.models import CaseResult, ModelOutput, Score, ToolCall
-from agentgauge.report.case import block, case_detail, scores_table, tool_call_lines
+from agentgauge.core.models import CaseResult, Message, ModelOutput, Score, ToolCall, Trajectory
+from agentgauge.report.case import (
+    block,
+    case_detail,
+    scores_table,
+    tool_call_lines,
+    trajectory_section,
+)
 
 HOSTILE = "<script>alert(1)</script>"
 
@@ -77,3 +83,60 @@ def test_helpers() -> None:
         == "a {}\nb 1"
     )
     assert "<tbody></tbody>" in scores_table(())
+
+
+def agent_trajectory(stop: str = "final") -> Trajectory:
+    call = ToolCall(id="c1", name="get_weather", arguments='{"city": "Paris"}')
+    return Trajectory(
+        messages=(
+            Message(role="assistant", content="Let me check.", tool_calls=(call,)),
+            Message(role="tool", content="sunny, 21C", tool_call_id="c1"),
+            Message(role="assistant", content="It is sunny in Paris."),
+        ),
+        stop_reason=stop,  # type: ignore[arg-type]
+    )
+
+
+def test_the_trajectory_shows_every_step_in_order() -> None:
+    out = trajectory_section(agent_trajectory())
+    assert "2 step(s), 1 tool call(s); ended: answered" in out
+    positions = [
+        out.index(marker)
+        for marker in (
+            "Step 1: model",
+            "Let me check.",
+            "-&gt; get_weather {&quot;city&quot;: &quot;Paris&quot;}",
+            "Tool result",
+            "sunny, 21C",
+            "Step 2: model",
+            "It is sunny in Paris.",
+        )
+    ]
+    assert positions == sorted(positions)
+
+
+def test_a_run_cut_off_at_the_step_limit_says_so() -> None:
+    out = trajectory_section(agent_trajectory("max_steps"))
+    assert '<span class="fail">cut off at the step limit</span>' in out
+
+
+def test_an_empty_step_is_shown_as_empty() -> None:
+    out = trajectory_section(Trajectory(messages=(Message(role="assistant", content=""),)))
+    assert "<pre>(empty reply)</pre>" in out
+
+
+def test_trajectory_text_is_escaped() -> None:
+    call = ToolCall(id="c", name=HOSTILE, arguments=HOSTILE)
+    messages = (
+        Message(role="assistant", content=HOSTILE, tool_calls=(call,)),
+        Message(role="tool", content=HOSTILE, tool_call_id="c"),
+    )
+    out = trajectory_section(Trajectory(messages=messages))
+    assert "<script" not in out and out.count("&lt;script&gt;") == 4
+
+
+def test_case_detail_includes_the_trajectory_of_an_agent_run() -> None:
+    output = ModelOutput(text="done", latency_ms=1, trajectory=agent_trajectory())
+    out = case_detail(0, CaseResult(case_id="agent", output=output))
+    assert "Agent trajectory" in out and "Tool result" in out
+    assert "Agent trajectory" not in case_detail(0, full_result())

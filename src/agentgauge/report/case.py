@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agentgauge.core.models import CaseResult, Score, ToolCall
+from agentgauge.core.models import CaseResult, Score, ToolCall, Trajectory
 from agentgauge.report.html import Markup, join, tag
 
 
@@ -45,6 +45,33 @@ def tool_call_lines(calls: tuple[ToolCall, ...]) -> str:
     return "\n".join(f"{call.name} {call.arguments}" for call in calls)
 
 
+def trajectory_section(trajectory: Trajectory) -> Markup:
+    """The agent's steps in order: model text, tool calls, tool results, and how it ended."""
+    steps: list[Markup] = []
+    step = 0
+    for message in trajectory.messages:
+        if message.role == "assistant":
+            step += 1
+            lines = [message.content] if message.content else []
+            lines += [f"-> {call.name} {call.arguments}" for call in message.tool_calls]
+            content = "\n".join(lines) or "(empty reply)"
+            steps.append(tag("div", block(f"Step {step}: model", content), class_="step"))
+        else:
+            steps.append(tag("div", block("Tool result", message.content), class_="step"))
+    ended = (
+        tag("span", "cut off at the step limit", class_="fail")
+        if trajectory.stop_reason == "max_steps"
+        else Markup("answered")
+    )
+    summary = tag(
+        "p",
+        f"{trajectory.steps} step(s), {len(trajectory.tool_calls)} tool call(s); ended: ",
+        ended,
+        class_="muted",
+    )
+    return join([tag("div", "Agent trajectory", class_="label"), summary, *steps])
+
+
 def _metrics(result: CaseResult) -> str:
     parts: list[str] = []
     if result.latency_ms is not None:
@@ -76,6 +103,8 @@ def case_detail(index: int, result: CaseResult, *, expand: bool = False) -> Mark
         parts.append(block("Output", output.text or "(empty reply)"))
         if output.tool_calls:
             parts.append(block("Tool calls", tool_call_lines(output.tool_calls)))
+    if output is not None and output.trajectory is not None:
+        parts.append(trajectory_section(output.trajectory))
     if result.scores:
         parts.append(tag("div", "Scores", class_="label"))
         parts.append(scores_table(result.scores))
