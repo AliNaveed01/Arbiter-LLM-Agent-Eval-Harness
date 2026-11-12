@@ -6,6 +6,7 @@ import statistics
 from datetime import UTC, datetime
 
 from agentgauge.core.models import CaseResult, RunResult
+from agentgauge.report.case import case_detail, case_status
 from agentgauge.report.html import Markup, join, tag
 from agentgauge.report.page import Theme, page
 
@@ -61,13 +62,6 @@ def run_summary(run: RunResult) -> Markup:
     )
 
 
-def case_status(result: CaseResult) -> tuple[str, str, str]:
-    """The css class, icon and word for a case. The word and icon carry meaning, not colour."""
-    if result.error is not None:
-        return "error", "!", "error"
-    return ("pass", "✓", "pass") if result.passed else ("fail", "✗", "fail")
-
-
 def _scores(result: CaseResult) -> str:
     return ", ".join(f"{s.scorer} {s.value:g}" for s in result.scores) or "-"
 
@@ -95,13 +89,13 @@ def cases_table(run: RunResult) -> Markup:
         tag("th", "Reason"),
     )
     rows: list[Markup] = []
-    for result in run.results:
+    for index, result in enumerate(run.results):
         css, icon, word = case_status(result)
         latency = f"{result.latency_ms:.0f} ms" if result.latency_ms is not None else "-"
         rows.append(
             tag(
                 "tr",
-                tag("td", tag("code", result.case_id)),
+                tag("td", tag("a", tag("code", result.case_id), href=f"#case-{index}")),
                 tag("td", f"{icon} {word}", class_=f"status {css}"),
                 tag("td", _scores(result)),
                 tag("td", latency, class_="num"),
@@ -111,7 +105,11 @@ def cases_table(run: RunResult) -> Markup:
     return tag("div", tag("table", tag("thead", head), tag("tbody", join(rows))), class_="scroll")
 
 
-def render_run_report(run: RunResult, *, theme: Theme = "auto") -> str:
-    """The whole report page for one run."""
-    body = join([run_summary(run), tag("h2", "Cases"), cases_table(run)])
+def render_run_report(run: RunResult, *, theme: Theme = "auto", expand: bool = False) -> str:
+    """The whole report page for one run. ``expand`` opens every case, which suits printing."""
+    parts = [run_summary(run), tag("h2", "Cases"), cases_table(run)]
+    if run.results:
+        parts.append(tag("h2", "Case detail"))
+        parts += [case_detail(i, r, expand=expand) for i, r in enumerate(run.results)]
+    body = join(parts)
     return page(f"agentgauge run {run.suite_name}", body, theme=theme)

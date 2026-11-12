@@ -1,8 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
 from agentgauge.core.models import CaseResult, ModelOutput, RunResult, Score
+from agentgauge.report.case import case_status
 from agentgauge.report.run import (
-    case_status,
     cases_table,
     duration,
     moment,
