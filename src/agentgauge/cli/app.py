@@ -26,6 +26,7 @@ from agentgauge.core import ProviderConfig, RunResult, Suite, SuiteLoadError, lo
 from agentgauge.judge import Scale
 from agentgauge.otel import OtelImportError, load_traces, score_imported
 from agentgauge.providers import ProviderConfigError, build_provider
+from agentgauge.report.run import render_run_report
 from agentgauge.runner import run_suite
 from agentgauge.scorers import ScorerConfigError
 from agentgauge.storage import RunStore, StorageError
@@ -427,3 +428,50 @@ def compare(
             typer.echo(f"{comparison.verdict}: wrote {output}")
     if comparison.verdict == "regression":
         raise typer.Exit(REGRESSION)
+
+
+class ThemeOption(StrEnum):
+    AUTO = "auto"
+    LIGHT = "light"
+    DARK = "dark"
+
+
+@app.command()
+def report(
+    run_id: Annotated[
+        str, typer.Argument(metavar="RUN", help="Run id, id prefix, 'latest' or 'previous'.")
+    ],
+    db: DbOption = DEFAULT_DB,
+    suite: Annotated[
+        str | None,
+        typer.Option(help="Resolve 'latest' and 'previous' among the runs of this suite."),
+    ] = None,
+    output: Annotated[
+        Path | None,
+        typer.Option(help="HTML file to write. Default: agentgauge-report-<run id>.html here."),
+    ] = None,
+    theme: Annotated[
+        ThemeOption, typer.Option(help="auto follows the reader's system setting.")
+    ] = ThemeOption.AUTO,
+    expand: Annotated[
+        bool, typer.Option("--expand", help="Open every case, which suits printing.")
+    ] = False,
+) -> None:
+    """Write a self-contained HTML report of a stored run.
+
+    The file needs no network and contains no scripts. Exits 2 for an unknown or ambiguous
+    run, or an unusable database.
+    """
+    try:
+        store = RunStore(db)
+    except StorageError as exc:
+        _fail(str(exc))
+    with store:
+        try:
+            run = select_run(store, run_id, suite=suite)
+        except (StorageError, CompareError) as exc:
+            _fail(str(exc))
+    target = output or Path(f"agentgauge-report-{run.run_id[:8]}.html")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(render_run_report(run, theme=theme.value, expand=expand), encoding="utf-8")
+    typer.echo(f"wrote {target}")
