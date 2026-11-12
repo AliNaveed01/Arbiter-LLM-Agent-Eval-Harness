@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 
 from agentgauge.core.models import CaseResult, RunResult
 from agentgauge.report.html import Markup, join, tag
+from agentgauge.report.page import Theme, page
 
 ID_WIDTH = 8
 
@@ -65,3 +66,52 @@ def case_status(result: CaseResult) -> tuple[str, str, str]:
     if result.error is not None:
         return "error", "!", "error"
     return ("pass", "✓", "pass") if result.passed else ("fail", "✗", "fail")
+
+
+def _scores(result: CaseResult) -> str:
+    return ", ".join(f"{s.scorer} {s.value:g}" for s in result.scores) or "-"
+
+
+def _reason(result: CaseResult) -> str:
+    """Why the case did not pass: its error, or the first failing score's reason."""
+    if result.error is not None:
+        return result.error
+    for score in result.scores:
+        if not score.passed:
+            return f"{score.scorer}: {score.reason}" if score.reason else score.scorer
+    return ""
+
+
+def cases_table(run: RunResult) -> Markup:
+    """One row per case: status, scores, latency and the reason it failed."""
+    if not run.results:
+        return tag("p", "No cases.", class_="muted")
+    head = tag(
+        "tr",
+        tag("th", "Case"),
+        tag("th", "Result"),
+        tag("th", "Scores"),
+        tag("th", "Latency", class_="num"),
+        tag("th", "Reason"),
+    )
+    rows: list[Markup] = []
+    for result in run.results:
+        css, icon, word = case_status(result)
+        latency = f"{result.latency_ms:.0f} ms" if result.latency_ms is not None else "-"
+        rows.append(
+            tag(
+                "tr",
+                tag("td", tag("code", result.case_id)),
+                tag("td", f"{icon} {word}", class_=f"status {css}"),
+                tag("td", _scores(result)),
+                tag("td", latency, class_="num"),
+                tag("td", _reason(result)),
+            )
+        )
+    return tag("div", tag("table", tag("thead", head), tag("tbody", join(rows))), class_="scroll")
+
+
+def render_run_report(run: RunResult, *, theme: Theme = "auto") -> str:
+    """The whole report page for one run."""
+    body = join([run_summary(run), tag("h2", "Cases"), cases_table(run)])
+    return page(f"agentgauge run {run.suite_name}", body, theme=theme)
