@@ -55,3 +55,8 @@ def test_the_page_has_print_styles_and_wraps_long_text() -> None:
 def test_an_unknown_theme_is_refused() -> None:
     with pytest.raises(ValueError, match="theme"):
         page("t", tag("p"), theme="sepia")  # type: ignore[arg-type]
+
+
+def test_links_use_the_accent_colour_in_both_themes() -> None:
+    style = page("t", tag("p"))
+    assert "a{color:var(--accent)}" in style and "a:visited{color:var(--accent)}" in style

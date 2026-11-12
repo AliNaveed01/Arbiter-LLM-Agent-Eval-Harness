@@ -53,7 +53,7 @@ def run_summary(run: RunResult) -> Markup:
     ]
     if latencies:
         stats.append(_stat("mean latency", f"{statistics.fmean(latencies):.0f} ms"))
-    if costs:
+    if costs and sum(costs) > 0:  # a free or fake run has nothing to report
         stats.append(_stat("cost", f"${sum(costs):.4f}"))
     return join(
         [
