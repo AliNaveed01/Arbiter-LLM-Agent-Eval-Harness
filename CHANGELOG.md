@@ -1,5 +1,66 @@
 # Changelog
 
+## [0.3.0](https://github.com/AliNaveed01/agentgauge/compare/v0.2.0...v0.3.0) (2026-11-12)
+
+
+### Features
+
+* **action:** add a GitHub Action that fails only on a significant regression ([bcbffae](https://github.com/AliNaveed01/agentgauge/commit/bcbffaea0684da1c4e034a4c2e744d9eb54cbaf0)), closes [#52](https://github.com/AliNaveed01/agentgauge/issues/52)
+* **benchmarks:** add a multi-step tool-loop suite and a thinking switch ([b290abc](https://github.com/AliNaveed01/agentgauge/commit/b290abca5cf590db01ac697275c7154f25d6d78b)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **cli:** add --baseline to report to include a comparison ([25eefcc](https://github.com/AliNaveed01/agentgauge/commit/25eefccf083b2924dae04e18ba493b1ed79c454b)), closes [#60](https://github.com/AliNaveed01/agentgauge/issues/60)
+* **cli:** add agentgauge compare with latest and previous selection ([077c14d](https://github.com/AliNaveed01/agentgauge/commit/077c14d4c77ca95966597fc27e0d98275951e226)), closes [#50](https://github.com/AliNaveed01/agentgauge/issues/50)
+* **cli:** add agentgauge report to write a run as HTML ([e497def](https://github.com/AliNaveed01/agentgauge/commit/e497def80741707fe0dad65034a18f4b8f8550c6)), closes [#58](https://github.com/AliNaveed01/agentgauge/issues/58)
+* **cli:** add calibrate --fail-under ([a85a231](https://github.com/AliNaveed01/agentgauge/commit/a85a23179b6c7a9df0e11075a7f2acb40f088a37)), closes [#42](https://github.com/AliNaveed01/agentgauge/issues/42)
+* **cli:** add import-otel command ([468f619](https://github.com/AliNaveed01/agentgauge/commit/468f61904be892e6fb040925606b5fbfa3f96f5d)), closes [#41](https://github.com/AliNaveed01/agentgauge/issues/41)
+* **cli:** add runs show --trajectory ([7611e04](https://github.com/AliNaveed01/agentgauge/commit/7611e0406a322ad36860d9d6bf7f7592a6b57bd7)), closes [#40](https://github.com/AliNaveed01/agentgauge/issues/40)
+* **compare:** add the exact McNemar test and a paired bootstrap interval ([c1ca443](https://github.com/AliNaveed01/agentgauge/commit/c1ca443d22179d0239ceeb6fbdcab9378135533a)), closes [#48](https://github.com/AliNaveed01/agentgauge/issues/48)
+* **compare:** compare two runs and decide on a regression ([d1d3e85](https://github.com/AliNaveed01/agentgauge/commit/d1d3e8578778cb08db0b17fee2d66f761c79b742)), closes [#49](https://github.com/AliNaveed01/agentgauge/issues/49)
+* **compare:** pair two runs by case id ([a1bc657](https://github.com/AliNaveed01/agentgauge/commit/a1bc6576a7ce520401429e374048833b86fead95)), closes [#47](https://github.com/AliNaveed01/agentgauge/issues/47)
+* **compare:** render a comparison as markdown or JSON ([ae129a7](https://github.com/AliNaveed01/agentgauge/commit/ae129a70a4756be94bd6e6cd7d001999643324c8)), closes [#51](https://github.com/AliNaveed01/agentgauge/issues/51)
+* **core:** add trajectory, agent config and tool mock models ([9288275](https://github.com/AliNaveed01/agentgauge/commit/92882751fc418ec09fa3920e894361d0073b7b6e)), closes [#36](https://github.com/AliNaveed01/agentgauge/issues/36)
+* **core:** resolve relative rubric paths against the suite file ([bf45722](https://github.com/AliNaveed01/agentgauge/commit/bf45722d32710aa76e68f6d096cec4e9a807bfe7)), closes [#42](https://github.com/AliNaveed01/agentgauge/issues/42)
+* **otel:** import OTLP GenAI traces as scorable trajectories ([528a4c9](https://github.com/AliNaveed01/agentgauge/commit/528a4c9502585bb9d18a7297ebe67614fb87e248)), closes [#41](https://github.com/AliNaveed01/agentgauge/issues/41)
+* **providers:** script multi-step fake responses with tool calls ([017e10d](https://github.com/AliNaveed01/agentgauge/commit/017e10ddb3ca41195634c1c374128eb736f89b15)), closes [#37](https://github.com/AliNaveed01/agentgauge/issues/37)
+* **providers:** send extra request-body fields to OpenAI-compatible servers ([217f5c1](https://github.com/AliNaveed01/agentgauge/commit/217f5c129f3fc0bbf6d4f4b4cf27879f0b80e76f)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **report:** add a self-contained page with light and dark themes ([bd46812](https://github.com/AliNaveed01/agentgauge/commit/bd4681290b9548249067852036a75c0d8762f730)), closes [#55](https://github.com/AliNaveed01/agentgauge/issues/55)
+* **report:** add the comparison section ([d97b018](https://github.com/AliNaveed01/agentgauge/commit/d97b018a60b15dd142a1bafb0da412824da00a5c)), closes [#59](https://github.com/AliNaveed01/agentgauge/issues/59)
+* **report:** draw the pass-rate change as an inline SVG ([0878ee3](https://github.com/AliNaveed01/agentgauge/commit/0878ee3ecd9f1d092dcd1977da1de890067d1d99)), closes [#59](https://github.com/AliNaveed01/agentgauge/issues/59)
+* **report:** escape every dynamic value in one place ([f585ae6](https://github.com/AliNaveed01/agentgauge/commit/f585ae6a2a67473ae419160895194580c720f844)), closes [#55](https://github.com/AliNaveed01/agentgauge/issues/55)
+* **report:** list the cases with status, scores and the reason for a failure ([69884be](https://github.com/AliNaveed01/agentgauge/commit/69884be676f788cf62b77bf2ae174ba5304698f8)), closes [#56](https://github.com/AliNaveed01/agentgauge/issues/56)
+* **report:** show each case's output, tool calls, scores and error ([e069e10](https://github.com/AliNaveed01/agentgauge/commit/e069e1067f6caa680e58b3f9028c315a54312ab2)), closes [#57](https://github.com/AliNaveed01/agentgauge/issues/57)
+* **report:** show the agent trajectory in the case detail ([e130644](https://github.com/AliNaveed01/agentgauge/commit/e130644a353d363005f318b47549e37515b40418)), closes [#57](https://github.com/AliNaveed01/agentgauge/issues/57)
+* **report:** summarise a run ([b2f64a4](https://github.com/AliNaveed01/agentgauge/commit/b2f64a407413bbac16742a9190a64e0b148f2fe9)), closes [#56](https://github.com/AliNaveed01/agentgauge/issues/56)
+* **runner:** run cases as a multi-step tool-loop agent ([901a70e](https://github.com/AliNaveed01/agentgauge/commit/901a70eaa2919fb139abe1532e6eb40228989d2a)), closes [#37](https://github.com/AliNaveed01/agentgauge/issues/37)
+* **scorers:** add trajectory_match and trajectory_budget scorers ([111a75b](https://github.com/AliNaveed01/agentgauge/commit/111a75b7b876010bb3ac41561b79ee9748b2512b)), closes [#38](https://github.com/AliNaveed01/agentgauge/issues/38)
+* **scripts:** draw the kappa-by-model chart from benchmark results ([03aa2a4](https://github.com/AliNaveed01/agentgauge/commit/03aa2a4058639e1dee25cb924bc0584fd854c1d1)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **scripts:** mark runs with no valid verdicts on the kappa chart ([b9f183e](https://github.com/AliNaveed01/agentgauge/commit/b9f183e3251d179c499119c359f5131a96947ee2)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **storage:** persist trajectories in schema migration 2 ([740dda2](https://github.com/AliNaveed01/agentgauge/commit/740dda2b7bd7e2aba02a5b8e17ddd99709883320)), closes [#39](https://github.com/AliNaveed01/agentgauge/issues/39)
+
+
+### Bug Fixes
+
+* **compare:** never print a negative zero latency change ([59355a4](https://github.com/AliNaveed01/agentgauge/commit/59355a4e13a3c25a15e8922e6047ce2c08f9149e)), closes [#51](https://github.com/AliNaveed01/agentgauge/issues/51)
+* **otel:** take the final answer from the latest chat span that has one ([187594c](https://github.com/AliNaveed01/agentgauge/commit/187594c14892d2d851f33b0a98b0ebc031fad86e)), closes [#41](https://github.com/AliNaveed01/agentgauge/issues/41)
+* **report:** style links with the theme and hide a zero cost ([440e3ae](https://github.com/AliNaveed01/agentgauge/commit/440e3ae4c10da6a0ea4771edebcb24844dcb4038)), closes [#56](https://github.com/AliNaveed01/agentgauge/issues/56)
+
+
+### Documentation
+
+* add the report guide, README section and an example report ([96b58ea](https://github.com/AliNaveed01/agentgauge/commit/96b58ea8c5f7f6a6c49e7ce3af18a03104f9e420)), closes [#61](https://github.com/AliNaveed01/agentgauge/issues/61)
+* **adr:** record OTel import and M2 carryover decisions ([c77b3b2](https://github.com/AliNaveed01/agentgauge/commit/c77b3b20b674045abd47e11b61b30eb372cebf3c)), closes [#41](https://github.com/AliNaveed01/agentgauge/issues/41)
+* **adr:** record the extended benchmark decisions ([b29ea24](https://github.com/AliNaveed01/agentgauge/commit/b29ea24771ee646edb343b30903c0f43aa0daf14)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **adr:** record the HTML report decisions ([1f7a5af](https://github.com/AliNaveed01/agentgauge/commit/1f7a5af32e2cd00351848d1e1720e34c766ab2db)), closes [#61](https://github.com/AliNaveed01/agentgauge/issues/61)
+* **adr:** record the regression comparison decisions ([d3d8f82](https://github.com/AliNaveed01/agentgauge/commit/d3d8f8271c6d613ea1319c93a9ec32f741283fca)), closes [#53](https://github.com/AliNaveed01/agentgauge/issues/53)
+* **adr:** record trajectory and agent loop decisions ([8d250af](https://github.com/AliNaveed01/agentgauge/commit/8d250afcf59d055d6cf9bcc40d8cc2ae9c81f241)), closes [#36](https://github.com/AliNaveed01/agentgauge/issues/36)
+* **benchmarks:** add qwen3:0.6b results with thinking on and off ([f32b6a8](https://github.com/AliNaveed01/agentgauge/commit/f32b6a87887a054ac63f7baaba55e7b8ef1f1bb5)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **benchmarks:** add qwen3:4b results with thinking on and off ([1117e3b](https://github.com/AliNaveed01/agentgauge/commit/1117e3b45a912a15ae82a898efa9334e1b94f864)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **benchmarks:** add the kappa-by-model chart ([24e1a42](https://github.com/AliNaveed01/agentgauge/commit/24e1a42cc21ffa0d2b9119d0f429bea67288edfc)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* **benchmarks:** report the ablation, the 4b run and the loop results ([e3cb7c8](https://github.com/AliNaveed01/agentgauge/commit/e3cb7c88cb429ccdf402475e7a791f0fc50f92c1)), closes [#45](https://github.com/AliNaveed01/agentgauge/issues/45)
+* document trajectories, agent runs and OTel import ([6273528](https://github.com/AliNaveed01/agentgauge/commit/6273528c38731ed8722b5755ff09215292df0f66)), closes [#38](https://github.com/AliNaveed01/agentgauge/issues/38)
+* **examples:** add a baseline and a regressed candidate for compare ([1894701](https://github.com/AliNaveed01/agentgauge/commit/1894701ef994dc4121847f3d14934617496d090d)), closes [#53](https://github.com/AliNaveed01/agentgauge/issues/53)
+* **examples:** add multi-step agent and OTel import examples ([897e0be](https://github.com/AliNaveed01/agentgauge/commit/897e0be03fe49d7930e20b7bcfc1811ffa0bed62)), closes [#36](https://github.com/AliNaveed01/agentgauge/issues/36)
+* explain regression comparison and the GitHub Action ([404043a](https://github.com/AliNaveed01/agentgauge/commit/404043a31354a50c1e28444998eb496d6b4ca745)), closes [#53](https://github.com/AliNaveed01/agentgauge/issues/53)
+
 ## [0.2.0](https://github.com/AliNaveed01/agentgauge/compare/v0.1.0...v0.2.0) (2026-11-05)
 
 
