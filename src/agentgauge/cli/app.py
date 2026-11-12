@@ -55,6 +55,19 @@ app.add_typer(runs_app, name="runs")
 DbOption = Annotated[Path, typer.Option("--db", envvar="AGENTGAUGE_DB", help="Run database file.")]
 
 
+AlphaOption = Annotated[float, typer.Option(help="Significance level, between 0 and 1.")]
+MaxDropOption = Annotated[
+    float,
+    typer.Option(
+        "--max-drop", help="Pass-rate drop you accept even when significant (0.02 = 2 points)."
+    ),
+]
+ResamplesOption = Annotated[
+    int, typer.Option(min=100, help="Bootstrap resamples for the intervals.")
+]
+SeedOption = Annotated[int, typer.Option(help="Seed for the bootstrap, so reports repeat.")]
+
+
 @app.callback()
 def main(
     version: Annotated[
@@ -370,17 +383,10 @@ def compare(
         str | None,
         typer.Option(help="Resolve 'latest' and 'previous' among the runs of this suite."),
     ] = None,
-    alpha: Annotated[float, typer.Option(help="Significance level, between 0 and 1.")] = 0.05,
-    max_drop: Annotated[
-        float,
-        typer.Option(
-            "--max-drop", help="Pass-rate drop you accept even when significant (0.02 = 2 points)."
-        ),
-    ] = 0.0,
-    resamples: Annotated[
-        int, typer.Option(min=100, help="Bootstrap resamples for the intervals.")
-    ] = 2000,
-    seed: Annotated[int, typer.Option(help="Seed for the bootstrap, so reports repeat.")] = 0,
+    alpha: AlphaOption = 0.05,
+    max_drop: MaxDropOption = 0.0,
+    resamples: ResamplesOption = 2000,
+    seed: SeedOption = 0,
     output_format: Annotated[
         OutputFormat, typer.Option("--format", help="table, markdown or json.")
     ] = OutputFormat.TABLE,
