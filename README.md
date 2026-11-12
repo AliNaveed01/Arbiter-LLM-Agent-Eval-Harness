@@ -4,7 +4,7 @@ agentgauge is an open-source regression-testing harness for LLM agents. It answe
 
 **Status: pre-alpha**
 
-**What works today:** define a suite of test cases in YAML or JSONL, run it against any OpenAI-compatible model, score it with deterministic scorers, an LLM judge calibrated against human labels, and tool-call trajectory scorers, store and inspect the runs, import OpenTelemetry traces, and compare two runs with a significance test, locally or as a GitHub Action. **Not built yet:** the HTML report, the docs site and a worked example on a real agent (v1.0).
+**What works today:** define a suite of test cases in YAML or JSONL, run it against any OpenAI-compatible model, score it with deterministic scorers, an LLM judge calibrated against human labels, and tool-call trajectory scorers, store and inspect the runs, import OpenTelemetry traces, compare two runs with a significance test, locally or as a GitHub Action, and write a run as an HTML report. **Not built yet:** the docs site, the demo GIF and a worked example on a real agent (v1.0).
 
 ## Quickstart
 
@@ -118,6 +118,16 @@ uv run agentgauge compare previous latest
 ```
 
 See [docs/regression.md](docs/regression.md) for how to read it, how many cases you need, and the GitHub Action ([`action.yml`](action.yml), [example workflow](examples/github-action/regression.yml)).
+
+## HTML report
+
+`agentgauge report` writes a stored run as one self-contained HTML file, with the comparison against a baseline if you ask for it. It needs no network, contains no scripts, and escapes everything the model said:
+
+```bash
+uv run agentgauge report latest --baseline previous --output report.html
+```
+
+See [docs/report.md](docs/report.md) and the [example report](docs/examples/regression-report.html).
 
 ## Running against a real model
 
