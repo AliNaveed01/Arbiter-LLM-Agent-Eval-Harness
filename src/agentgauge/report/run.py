@@ -5,8 +5,10 @@ from __future__ import annotations
 import statistics
 from datetime import UTC, datetime
 
+from agentgauge.compare import Comparison
 from agentgauge.core.models import CaseResult, RunResult
 from agentgauge.report.case import case_detail, case_status
+from agentgauge.report.comparison import comparison_section
 from agentgauge.report.html import Markup, join, tag
 from agentgauge.report.page import Theme, page
 
@@ -105,9 +107,22 @@ def cases_table(run: RunResult) -> Markup:
     return tag("div", tag("table", tag("thead", head), tag("tbody", join(rows))), class_="scroll")
 
 
-def render_run_report(run: RunResult, *, theme: Theme = "auto", expand: bool = False) -> str:
-    """The whole report page for one run. ``expand`` opens every case, which suits printing."""
-    parts = [run_summary(run), tag("h2", "Cases"), cases_table(run)]
+def render_run_report(
+    run: RunResult,
+    *,
+    theme: Theme = "auto",
+    expand: bool = False,
+    comparison: Comparison | None = None,
+) -> str:
+    """The whole report page for one run, with a comparison against a baseline if given.
+
+    ``expand`` opens every case, which suits printing.
+    """
+    parts = [run_summary(run)]
+    if comparison is not None:
+        anchors = {r.case_id: i for i, r in enumerate(run.results)}
+        parts.append(comparison_section(comparison, anchors))
+    parts += [tag("h2", "Cases"), cases_table(run)]
     if run.results:
         parts.append(tag("h2", "Case detail"))
         parts += [case_detail(i, r, expand=expand) for i, r in enumerate(run.results)]
