@@ -34,6 +34,8 @@ h1{{font-size:1.5rem;margin:0 0 .25rem}}
 h2{{font-size:1.15rem;margin:2rem 0 .75rem}}
 p{{margin:.5rem 0}}
 .muted{{color:var(--muted)}}
+a{{color:var(--accent)}}
+a:visited{{color:var(--accent)}}
 code,pre{{font:.875rem/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}}
 .scroll{{overflow-x:auto}}
 table{{border-collapse:collapse;width:100%}}

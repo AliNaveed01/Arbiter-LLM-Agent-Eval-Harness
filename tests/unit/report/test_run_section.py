@@ -50,6 +50,11 @@ def test_summary_omits_what_is_unknown() -> None:
     assert "took" not in out and "mean latency" not in out and "cost" not in out
 
 
+def test_a_zero_cost_is_not_shown_as_a_cost() -> None:
+    out = run_summary(make_run(result("a", cost_usd=0.0), result("b", cost_usd=0.0)))
+    assert "cost" not in out
+
+
 def test_an_empty_run_has_no_pass_rate() -> None:
     assert "<li><b>n/a</b>pass rate</li>" in run_summary(make_run())
 
